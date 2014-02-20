@@ -9,6 +9,9 @@
 #include <sys/stat.h>
 #include "errno.h"
 
+/* macro: test if index_tt is in the range between index and index+num, while the flag is true */
+#define _index_tt_in_range_(index,num,flag) (flag == _TRUE_) && (index_tt >= index) && (index_tt < index+num)
+
 /**
  * Structure containing everything about transfer functions in
  * harmonic space \f$ \Delta_l^{X} (q) \f$ that other modules need to
@@ -18,7 +21,7 @@
  * transfer functions used for interpolation in other modules, for all
  * requested modes (scalar/vector/tensor), initial conditions, types
  * (temperature, polarization, etc), multipoles l, and wavenumbers q.
- * 
+ *
  * Wavenumbers are called q in this module and k in the perturbation
  * module. In flat universes k=q. In non-flat universes q and k differ
  * through q2 = k2 + K(1+m), where m=0,1,2 for scalar, vector,
@@ -37,7 +40,7 @@ struct transfers {
   /** @name - input parameters initialized by user in input module
    *  (all other quantitites are computed in this module, given these
    *  parameters and the content of previous structures) */
-  
+
   //@{
 
   double lcmb_rescale; /**< normally set to one, can be used
@@ -68,11 +71,14 @@ struct transfers {
   int index_tt_t0;      /**< index for transfer type = temperature (j=0 term) */
   int index_tt_t1;      /**< index for transfer type = temperature (j=1 term) */
   int index_tt_t2;      /**< index for transfer type = temperature (j=2 term) */
-  int index_tt_e;      /**< index for transfer type = E-polarization */
-  int index_tt_b;      /**< index for transfer type = B-polarization */
-  int index_tt_lcmb;   /**< index for transfer type = CMB lensing */
+  int index_tt_e;       /**< index for transfer type = E-polarization */
+  int index_tt_b;       /**< index for transfer type = B-polarization */
+  int index_tt_lcmb;    /**< index for transfer type = CMB lensing */
   int index_tt_density; /**< index for first bin of transfer type = matter density */
   int index_tt_lensing; /**< index for first bin of transfer type = galaxy lensing */
+
+  int index_tt_rsd0;    /**< index for first bin of transfer type = redshift space distorsion of number count (j=0 term) */
+  int index_tt_rsd2;    /**< index for first bin of transfer type = redshift space distorsion of number count (j=2 term) */
 
   int * tt_size;     /**< number of requested transfer types tt_size[index_md] for each mode */
 
@@ -82,7 +88,7 @@ struct transfers {
 
   //@{
 
-  int ** l_size_tt;  /**< number of multipole values for which we effectively compute the transfer function,l_size_tt[index_md][index_tt] */ 
+  int ** l_size_tt;  /**< number of multipole values for which we effectively compute the transfer function,l_size_tt[index_md][index_tt] */
 
   int * l_size;   /**< number of multipole values for each requested mode, l_size[index_md] */
 
@@ -131,7 +137,7 @@ struct transfers {
   //@}
 };
 
-/** 
+/**
  * Structure containing all the quantities that each thread needs to
  * know for computing transfer functions (but that can be forgotten
  * once the transfer functions are known, otherwise they would be
@@ -158,8 +164,8 @@ struct transfer_workspace {
 
   //@{
 
-  int tau_size;                  /**< number of discrete time values for a given type */     
-  int tau_size_max;              /**< maximum number of discrete time values for all types */ 
+  int tau_size;                  /**< number of discrete time values for a given type */
+  int tau_size_max;              /**< maximum number of discrete time values for all types */
   double * interpolated_sources; /**< interpolated_sources[index_tau]
                                     : sources interpolated from the
                                     perturbation module at the right
@@ -199,10 +205,10 @@ struct transfer_workspace {
  * convenient and time-saving: it allows to use a "case" statement in
  * transfer_radial_function()
  */
- 
-typedef enum {SCALAR_TEMPERATURE_0, 
-              SCALAR_TEMPERATURE_1, 
-              SCALAR_TEMPERATURE_2, 
+
+typedef enum {SCALAR_TEMPERATURE_0,
+              SCALAR_TEMPERATURE_1,
+              SCALAR_TEMPERATURE_2,
               SCALAR_POLARISATION_E,
               VECTOR_TEMPERATURE_1,
               VECTOR_TEMPERATURE_2,
@@ -217,7 +223,7 @@ enum Hermite_Interpolation_Order {HERMITE3, HERMITE4, HERMITE6};
 /*************************************************************************************************************/
 
 /*
- * Boilerplate for C++ 
+ * Boilerplate for C++
  */
 #ifdef __cplusplus
 extern "C" {
@@ -240,7 +246,7 @@ extern "C" {
                     struct perturbs * ppt,
                     struct transfers * ptr
                     );
-    
+
   int transfer_free(
                     struct transfers * ptr
                     );
@@ -399,7 +405,7 @@ extern "C" {
                                   int bin,
                                   double * tau0_minus_tau,
                                   int tau_size);
-  
+
   int transfer_lensing_sampling(
                                 struct precision * ppr,
                                 struct background * pba,
@@ -409,7 +415,7 @@ extern "C" {
                                 double tau0,
                                 double * tau0_minus_tau,
                                 int tau_size);
-  
+
   int transfer_source_resample(
                                struct precision * ppr,
                                struct background * pba,
@@ -432,7 +438,7 @@ extern "C" {
                                double * tau_min,
                                double * tau_mean,
                                double * tau_max);
-  
+
   int transfer_selection_compute(
                                  struct precision * ppr,
                                  struct background * pba,
@@ -484,7 +490,7 @@ extern "C" {
                          double q,
                          double * trsf
                          );
-    
+
   int transfer_limber(
                       int tau_size,
                       struct transfers * ptr,
@@ -496,7 +502,7 @@ extern "C" {
                       double * sources,
                       double * trsf
                       );
-  
+
   int transfer_limber2(
                        int tau_size,
                        struct transfers * ptr,
@@ -508,7 +514,7 @@ extern "C" {
                        double * sources,
                        double * trsf
                        );
-      
+
   int transfer_can_be_neglected(
                                 struct precision * ppr,
                                 struct perturbs * ppt,
@@ -573,7 +579,7 @@ extern "C" {
                               struct transfer_workspace *ptw
                               );
 
-  int transfer_update_HIS( 
+  int transfer_update_HIS(
                           struct precision * ppr,
                           struct transfers * ptr,
                           struct transfer_workspace * ptw,
