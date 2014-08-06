@@ -959,6 +959,19 @@ int background_ncdm_distribution(
         account by introducing the mixing angles. In the later part
         (not read by the code) we illustrate how to do this */
 
+    /* Modifications for sterile neutrino project */
+
+    /* loop over flavor eigenstates and compute psd of mass eigenstates */
+    *f0=0.0;
+    int i;
+    for(i=0;i<4;i++){
+      //Multiplying by transpose (=inverse) of mixing matrix.
+      *f0 += pba->mixing_matrix[i][n_ncdm]*1.0/pow(2*_PI_,3)*
+        (pba->flavour_deg[i]/(exp(q-pba->ksi_ncdm[i])+1.) +
+         pba->flavour_deg[4+i]/(exp(q+pba->ksi_ncdm[i])+1.));
+
+    }
+
     if (_FALSE_) {
 
       /* We must use the list of extra parameters read in input, stored in the

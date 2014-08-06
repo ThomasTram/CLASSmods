@@ -82,6 +82,7 @@ extern "C" {
                    double tolx,
                    double tolF,
                    void *param,
+                   int ntrials,
                    int *fevals,
                    ErrorMsg error_message);
 

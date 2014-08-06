@@ -1065,13 +1065,14 @@ int fzero_Newton(int (*func)(double *x,
                  double tolx,
                  double tolF,
                  void *param,
+                 int ntrial,
                  int *fevals,
                  ErrorMsg error_message){
   /**Given an initial guess x[1..n] for a root in n dimensions,
      take ntrial Newton-Raphson steps to improve the root.
      Stop if the root converges in either summed absolute
      variable increments tolx or summed absolute function values tolf.*/
-  int k,i,j,*indx, ntrial=20;
+  int k,i,j,*indx;
   double errx,errf,d,*F0,*Fdel,**Fjac,*p, *lu_work;
   int has_converged = _FALSE_;
   double toljac = 1e-3;

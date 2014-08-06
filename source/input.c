@@ -410,6 +410,7 @@ int input_init(
                               1e-4,
                               1e-6,
                               &fzw,
+                              20,
                               &fevals,
                               errmsg),
                  errmsg,errmsg);
@@ -851,6 +852,81 @@ int input_read_parameters(
         pba->m_ncdm_in_eV[n]=1.e-5;
       }
     }
+
+    /* Sterile neutrino project changes here. We must set masses and
+       degeneracy parameters from the 10 input parameters:
+       sum_masses, dmsq_sterile, dmsq_sol, dmsq_atm, 6 mixing angles and the scenario.
+    */
+
+    class_read_double("sum_masses",pba->sum_masses);
+    class_read_double("dmsq_sol",pba->dmsq_sol);
+    class_read_double("dmsq_atm",pba->dmsq_atm);
+    class_read_double("dmsq_sterile",pba->dmsq_sterile);
+
+    class_read_double("theta14",pba->theta14);
+    class_read_double("theta24",pba->theta24);
+    class_read_double("theta34",pba->theta34);
+
+    class_read_double("theta13",pba->theta13);
+    class_read_double("theta12",pba->theta12);
+    class_read_double("theta23",pba->theta23);
+
+    class_read_int("hierarchy",pba->hierarchy);
+    class_read_string("nu_datafile",pba->nu_datafile);
+
+    /** --> Get neutrino masses. */
+    struct oscillation osc;
+    int fevals, i;
+    double *dMdF;
+
+    dMdF = malloc(sizeof(double)*4);
+    for (i=0; i<4; i++)
+      dMdF[i] = 1e-6;
+
+    osc.sum_masses = pba->sum_masses;
+    osc.dmsq_sol = pba->dmsq_sol;
+    osc.dmsq_atm = pba->dmsq_atm;
+    osc.dmsq_sterile = pba->dmsq_sterile;
+    osc.hierarchy = pba->hierarchy;
+
+    fevals = 0;
+    massguess_for_fzero(pba->m_ncdm_in_eV, &osc, errmsg);
+    class_test(osc.sum_masses < osc.min_sum_masses,
+               errmsg,
+               "No solution exist for this mass spectrum");
+    class_call(fzero_Newton(massfun_for_fzero,
+                            pba->m_ncdm_in_eV,
+                            dMdF,
+                            4,
+                            1e-12,
+                            1e-12,
+                            &osc,
+                            10000,
+                            &fevals,
+                            errmsg),
+               errmsg,errmsg);
+    free(dMdF);
+/** -->Get flavour degeneracies from table using dmsq_sterile and the three unknown*/
+    double dmtheta[4];
+    dmtheta[0] = pba->dmsq_sterile;
+    dmtheta[1] = pba->theta14;
+    dmtheta[2] = pba->theta24;
+    dmtheta[3] = pba->theta34;
+
+    class_call(get_population(dmtheta,
+                              pba->flavour_deg,
+                              pba->nu_datafile,
+                              errmsg),
+               errmsg, errmsg);
+
+    /** -->Get mixing matrix */
+    getmixing(pba->theta14,
+              pba->theta13,
+              pba->theta12,
+              pba->theta34,
+              pba->theta24,
+              pba->theta23,
+              pba->mixing_matrix);
 
     /* Check if filenames for interpolation tables are given: */
     class_read_list_of_integers_or_default("use_ncdm_psd_files",pba->got_files,_FALSE_,N_ncdm);
@@ -3401,5 +3477,424 @@ int input_auxillary_target_conditions(struct file_content * pfc,
     *aux_flag = _TRUE_;
     break;
   }
+  return _SUCCESS_;
+}
+
+int get_population(double dmtheta[4],
+                   double deg[8],
+                   FileName datafile,
+                   ErrorMsg error_message){
+
+  /** Input: double dmsq41,
+             double sinsqtheta14,
+             double sinsqtheta24,
+             double sinsqtheta3
+
+  */
+
+  FILE * fnu_file;
+  int i, lines=0;
+  int ch;
+  double *t1, *t2, *t3, *t4;
+  double *rhoall;
+  double *tiu;
+
+  double **X;
+  int Ntiu[4];
+  int *NX;
+  int ndim;
+  double *p_interp;
+
+  fnu_file = fopen(datafile,"r");
+  /* count the newline characters */
+  while ( (ch=fgetc(fnu_file)) != EOF ) {
+    if ( ch == '\n' )
+      lines++;
+  }
+
+  rewind(fnu_file);
+
+  t1 = malloc(sizeof(double)*lines);
+  t2 = malloc(sizeof(double)*lines);
+  t3 = malloc(sizeof(double)*lines);
+  t4 = malloc(sizeof(double)*lines);
+
+  rhoall = malloc(sizeof(double)*8*lines);
+  tiu = malloc(sizeof(double)*lines*4);
+
+  for (i=0; i<lines; i++){
+    fscanf(fnu_file,"%lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf %lf\n",
+           t1+i,
+           t2+i,
+           t3+i,
+           t4+i,
+           rhoall+i,
+           rhoall+lines+i,
+           rhoall+2*lines+i,
+           rhoall+3*lines+i,
+           rhoall+4*lines+i,
+           rhoall+5*lines+i,
+           rhoall+6*lines+i,
+           rhoall+7*lines+i);
+  }
+
+  fclose(fnu_file);
+
+  NX = malloc(sizeof(int)*4);
+  X = malloc(sizeof(double*)*4);
+  p_interp = malloc(sizeof(double)*4);
+
+  getUnique(t1, lines, tiu+0*lines, &(Ntiu[0]));
+  getUnique(t2, lines, tiu+1*lines, &(Ntiu[1]));
+  getUnique(t3, lines, tiu+2*lines, &(Ntiu[2]));
+  getUnique(t4, lines, tiu+3*lines, &(Ntiu[3]));
+
+  ndim = 0;
+  for (i=0; i<4; i++){
+    if (Ntiu[i]>1){
+      NX[ndim]=Ntiu[i];
+      X[ndim] = tiu+i*lines;
+      p_interp[ndim] = log10(dmtheta[i]);
+      ndim++;
+    }
+  }
+
+  printf("Read file %s containing %d lines. Effective number of dimensions: %d\n",
+         datafile, lines, ndim);
+
+  for (i=0; i<8; i++){
+    nlinear_interpolation(X,
+                          rhoall+i*lines,
+                          NX,
+                          ndim,
+                          p_interp
+                          );
+  }
+
+  free(X);
+  free(NX);
+  free(p_interp);
+
+  free(t1);
+  free(t2);
+  free(t3);
+  free(t4);
+  free(rhoall);
+
+  free(tiu);
+
+  return _SUCCESS_;
+}
+
+
+int binvec_reverse(int *bvec, int num, int n){
+  int i;
+  for (i=0; i<n; i++){
+      bvec[i] = num % 2;
+      num /= 2;
+  }
+  return _SUCCESS_;
+}
+
+double nlinear_interpolation(double **X,
+                             double *FX,
+			     int * NX,
+                             int ndim,
+                             double *p_interp){
+  int j, nvertices, vertex_index, dim_index, FX_index, cumprodrest;
+  double delxi, val;
+  int *idx_interp, *bvec;
+  double *t_interp, *vertices;
+
+  idx_interp = malloc(sizeof(int)*ndim);
+  bvec = malloc(sizeof(int)*ndim);
+
+  nvertices = (int) pow(2,ndim);
+
+  t_interp = malloc(sizeof(double)*ndim);
+  vertices = malloc(sizeof(double)*nvertices);
+
+
+  /** idx_interp is set to the 'lower left' vertex of the cube where
+      p_interp belongs. t_interp contains the unit normalised coordinates
+      inside this cube.
+  */
+
+  for (j=0; j<ndim; j++){
+    delxi = X[j][1]-X[j][0];
+    idx_interp[j] = (p_interp[j]-X[j][0])/delxi;
+
+    if (idx_interp[j]<0) idx_interp[j]=0;
+    if (idx_interp[j]>=(NX[j]-1)) idx_interp[j]=NX[j]-2;
+
+    t_interp[j] = (p_interp[j]-X[j][idx_interp[j]])/delxi;
+  }
+
+  /** There are 2^n vertices of a dimension n cube. We must assign the values
+      of all vertices in the order expected by the recursive routine. This is
+      taken care of by the reverse binary vector routine. Computing the corresponding
+      index in the FX array is also a bit tricky. FX is ordered according to what
+      MATLAB calls 'array space aligned'. This is like the grid computed by ndgrid.
+  */
+
+  for(vertex_index=0; vertex_index<nvertices; vertex_index++){
+    binvec_reverse(bvec,vertex_index,ndim);
+    FX_index = 0;
+    cumprodrest = 1;
+    for (dim_index=ndim-1; dim_index>=0; dim_index--){
+      FX_index += (idx_interp[dim_index]+bvec[dim_index])*cumprodrest;
+      cumprodrest *= NX[dim_index];
+    }
+    vertices[vertex_index] = FX[FX_index];
+  }
+
+  val = ninterp(t_interp, vertices, 0, ndim);
+
+  free(idx_interp);
+  free(bvec);
+  free(t_interp);
+  free(vertices);
+
+  return val;
+}
+
+
+double ninterp(double *tvec, double *a, int i, int n){
+  double val0, val1, val;
+  int i2;
+
+  if (n==1){
+    val0 = a[i];
+    val1 = a[i+1];
+  }
+  else{
+    val0 = ninterp(tvec, a, i, n-1);
+    i2 = i+pow(2,n-1);
+    val1 = ninterp(tvec, a, i2, n-1);
+  }
+  val = (1.-tvec[n-1])*val0+tvec[n-1]*val1;
+
+  return val;
+}
+
+int getUnique(double *in_vec, int n_in, double* out_vec, int *n_out){
+  int index_in_vec, index_out_vec;
+  int duplicate;
+  out_vec[0]=in_vec[0];
+  *n_out = 1;
+  //Loop over input vector
+  for (index_in_vec=1; index_in_vec<n_in; index_in_vec++){
+    duplicate = 0;
+    //Loop over all unique values found so far:
+    for (index_out_vec=0; index_out_vec<(*n_out); index_out_vec++){
+      if (in_vec[index_in_vec]==out_vec[index_out_vec]){
+	//We found a duplicate:
+	duplicate = 1;
+	break;
+      }
+    }
+    if (duplicate == 0){
+      //Add current value to unique vector:
+      out_vec[*n_out]=in_vec[index_in_vec];
+      (*n_out)++;
+    }
+  }
+  return _SUCCESS_;
+}
+
+int matmul44(double A[4][4], double B[4][4], double C[4][4]){
+
+  int i, j, k;
+
+  for (i=0; i<4; i++){
+    for (j=0; j<4; j++){
+      C[i][j] = 0.;
+      for (k=0; k<4; k++){
+        C[i][j] += A[i][k]*B[k][j];
+      }
+    }
+  }
+  return _SUCCESS_;
+}
+
+int matvecmul44(double A[4][4], double B[4], double C[4]){
+
+  int i, j;
+
+  for (i=0; i<4; i++){
+    C[i] = 0.;
+    for (j=0; j<4; j++){
+      C[i] += A[i][j]*B[j];
+    }
+  }
+  return _SUCCESS_;
+}
+
+int printmat44(double A[4][4], char *name){
+  int siz = 4;
+  int i;
+  printf("%s = \n",name);
+  for (i=0; i<4; i++)
+    printf("|% .*f % .*f % .*f % .*f|\n",siz,A[i][0],siz,A[i][1],siz,A[i][2],siz,A[i][3]);
+  return _SUCCESS_;
+}
+
+int rotmat44(int ri, int rj, double theta, double R[4][4]){
+  double costheta;
+  double sintheta;
+  int i,j;
+
+  ri--;
+  rj--;
+
+  costheta = cos(theta);
+  sintheta = sin(theta);
+
+  for (i=0; i<4; i++){
+    for (j=0; j<4; j++){
+      R[i][j] = 0.;
+    }
+  }
+
+  for (i=0; i<4; i++){
+    R[i][i] = 1.;
+  }
+
+  R[ri][ri] = costheta;
+  R[rj][rj] = costheta;
+  R[ri][rj] = sintheta;
+  R[rj][ri] = -sintheta;
+
+  return _SUCCESS_;
+}
+
+int transposemat44(double A[4][4], double At[4][4]){
+  int i,j;
+  for (i=0; i<4; i++){
+    for (j=0; j<4; j++){
+      At[i][j] = A[j][i];
+    }
+  }
+  return _SUCCESS_;
+}
+
+int getmixing(double theta14,
+              double theta13,
+              double theta12,
+              double theta34,
+              double theta24,
+              double theta23,
+              double U[4][4]){
+  double R14[4][4], R13[4][4], R12[4][4], R34[4][4], R24[4][4], R23[4][4];
+  double O1[4][4], O2[4][4], tmp[4][4];
+
+  rotmat44(1, 4, theta14, R14);
+  rotmat44(1, 3, theta13, R13);
+  rotmat44(1, 2, theta12, R12);
+  rotmat44(3, 4, theta34, R34);
+  rotmat44(2, 4, theta24, R24);
+  rotmat44(2, 3, theta23, R23);
+
+  matmul44(R14, R13, tmp);
+  matmul44(tmp, R12, O1);
+
+  matmul44(R34, R24, tmp);
+  matmul44(tmp, R23, O2);
+
+  matmul44(O2,O1,U);
+
+  return _SUCCESS_;
+}
+
+int massfun_for_fzero(double *M,
+                      int size_M,
+                      void * param,
+                      double *val,
+                      ErrorMsg error_message){
+
+  struct oscillation * osc = param;
+  double dm2sq_41=0.;
+  double Msol_sq=0.;
+
+  switch (osc->hierarchy){
+  case nu_aNHsNH:
+    Msol_sq = M[1]*M[1];
+    dm2sq_41 = osc->dmsq_sterile;
+    break;
+  case nu_aIHsNH:
+    Msol_sq = M[2]*M[2];
+    dm2sq_41 = osc->dmsq_sterile;
+    break;
+  case nu_aIHsIH:
+    Msol_sq = M[2]*M[2];
+    dm2sq_41 = -osc->dmsq_sterile;
+    break;
+  case nu_aNHsIH:
+    Msol_sq = M[1]*M[1];
+    dm2sq_41 = -osc->dmsq_sterile;
+    break;
+  }
+
+
+  val[0] = osc->sum_masses-(M[0]+M[1]+M[2]+M[3]);
+  val[1] = osc->dmsq_atm-(M[2]*M[2]-M[1]*M[1]);
+  val[2] = osc->dmsq_sol-(Msol_sq-M[0]*M[0]);
+  val[3] = dm2sq_41-(M[3]*M[3]-M[0]*M[0]);
+
+  return _SUCCESS_;
+
+}
+
+int massguess_for_fzero(double *M,
+                        void * param,
+                        ErrorMsg error_message){
+
+  struct oscillation * osc = param;
+  double m1=0., m2=0., m3=0., m4=0.;
+  double safeMsum;
+
+
+  switch (osc->hierarchy){
+  case nu_aNHsNH:
+    osc->min_sum_masses = sqrt(osc->dmsq_sol)+sqrt(osc->dmsq_sol+osc->dmsq_atm)+sqrt(osc->dmsq_sterile);
+    safeMsum = MAX(osc->min_sum_masses, osc->sum_masses);
+    m4 = 1./8.*(3.*sqrt(8.*osc->dmsq_sterile+safeMsum*safeMsum)-safeMsum);
+    m4 += sqrt(osc->dmsq_atm+osc->dmsq_sol);
+    m1 = sqrt(m4*m4-osc->dmsq_sterile);
+    m2 = sqrt(osc->dmsq_sol+m1*m1);
+    m3 = sqrt(osc->dmsq_atm+m2*m2);
+    break;
+  case nu_aIHsNH:
+    osc->min_sum_masses = sqrt(osc->dmsq_atm)+sqrt(osc->dmsq_atm-osc->dmsq_sol)+sqrt(osc->dmsq_sterile-osc->dmsq_sol+osc->dmsq_atm);
+    safeMsum = MAX(osc->min_sum_masses, osc->sum_masses);
+    m4 = 1./8.*(3.*sqrt(8.*osc->dmsq_sterile+safeMsum*safeMsum)-safeMsum);
+    m4 += sqrt(osc->dmsq_atm);
+    m1 = sqrt(m4*m4-osc->dmsq_sterile);
+    m3 = sqrt(osc->dmsq_sol+m1*m1);
+    m2 = sqrt(m3*m3-osc->dmsq_atm);
+    break;
+  case nu_aIHsIH:
+    osc->min_sum_masses = sqrt(osc->dmsq_sterile)+sqrt(osc->dmsq_sterile+osc->dmsq_sol)+sqrt(osc->dmsq_sterile+osc->dmsq_sol-osc->dmsq_atm);
+    safeMsum = MAX(osc->min_sum_masses, osc->sum_masses);
+    m2 = safeMsum/3.;
+    m3 = sqrt(m2*m2+osc->dmsq_atm);
+    m1 = sqrt(m3*m3-osc->dmsq_sol);
+    m4 = sqrt(m1*m1-osc->dmsq_sterile);
+    break;
+  case nu_aNHsIH:
+    osc->min_sum_masses = sqrt(osc->dmsq_sterile)+sqrt(osc->dmsq_sterile+osc->dmsq_sol)+sqrt(osc->dmsq_sterile+osc->dmsq_sol+osc->dmsq_atm);
+    safeMsum = MAX(osc->min_sum_masses, osc->sum_masses);
+    m1 = safeMsum/3.;
+    m4 = sqrt(m1*m1-osc->dmsq_sterile);
+    m2 = sqrt(osc->dmsq_sol+m1*m1);
+    m3 = sqrt(osc->dmsq_atm+m2*m2);
+    break;
+  }
+
+  M[0] = m1;
+  M[1] = m2;
+  M[2] = m3;
+  M[3] = m4;
+
   return _SUCCESS_;
 }

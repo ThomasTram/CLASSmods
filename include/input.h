@@ -267,6 +267,45 @@ extern "C" {
                                         int * aux_flag,
                                         ErrorMsg error_message);
 
+  int get_population(double dmtheta[4],
+                     double deg[8],
+                     FileName datafile,
+                     ErrorMsg error_message);
+
+  double nlinear_interpolation(double **X,
+                             double *FX,
+			     int * NX,
+                             int ndim,
+                             double *p_interp);
+
+  int binvec_reverse(int *bvec, int num, int n);
+
+  double ninterp(double *tvec, double *a, int i, int n);
+
+  int getUnique(double *in_vec, int n_in, double* out_vec, int *n_out);
+
+  int getmixing(double theta14,
+              double theta13,
+              double theta12,
+              double theta34,
+              double theta24,
+              double theta23,
+              double U[4][4]);
+  int printmat44(double A[4][4], char *name);
+  int matmul44(double A[4][4], double B[4][4], double C[4][4]);
+  int matvecmul44(double A[4][4], double B[4], double C[4]);
+  int rotmat44(int ri, int rj, double theta, double R[4][4]);
+  int transposemat44(double A[4][4], double At[4][4]);
+  int massfun_for_fzero(double *M,
+                        int size_M,
+                        void * param,
+                        double *val,
+                        ErrorMsg error_message);
+
+  int massguess_for_fzero(double *M,
+                          void * param,
+                          ErrorMsg error_message);
+
 #ifdef __cplusplus
 }
 #endif

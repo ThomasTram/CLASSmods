@@ -10,6 +10,21 @@
 #include "dei_rkck.h"
 #include "parser.h"
 
+enum neutrino_hierarchy {
+  nu_aNHsNH,
+  nu_aIHsNH,
+  nu_aIHsIH,
+  nu_aNHsIH};
+
+struct oscillation {
+  double sum_masses;
+  double dmsq_atm;
+  double dmsq_sol;
+  double dmsq_sterile; //|dmsq_41|
+  double min_sum_masses;
+  enum neutrino_hierarchy hierarchy;
+};
+
 enum spatial_curvature {flat,open,closed};
 
 /**
@@ -105,6 +120,26 @@ struct background
                                              ncdm p.s.d.'s, to be cutomized for given model
                                              (could be e.g. mixing angles) */
   /* end of parameters for analytical ncdm p-s-d */
+
+  /* For sterile neutrino project */
+  double sum_masses;
+  double dmsq_sol;
+  double dmsq_atm;
+  double dmsq_sterile;
+
+  double theta14;
+  double theta24;
+  double theta34;
+
+  double theta13;
+  double theta12;
+  double theta23;
+
+  enum neutrino_hierarchy hierarchy;
+  FileName nu_datafile;
+  double flavour_deg[8];
+  double mixing_matrix[4][4];
+
 
   /* the following parameters help to define tabulated ncdm p-s-d passed in file */
   int * got_files;                      /**< list of flags for each species, set to true if
