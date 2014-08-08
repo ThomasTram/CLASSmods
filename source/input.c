@@ -872,7 +872,17 @@ int input_read_parameters(
     class_read_double("theta23",pba->theta23);
 
     class_read_int("hierarchy",pba->hierarchy);
-    class_read_string("nu_datafile",pba->nu_datafile);
+    //printf("Hierarchy = %d\n",pba->hierarchy);
+    class_call(parser_read_string(pfc,
+                                  "nu_datafile",
+                                  &string1,
+                                  &flag1,
+                                  errmsg),
+                errmsg,
+                errmsg);
+
+    sprintf(pba->nu_datafile,__CLASSDIR__);
+    strcat(pba->nu_datafile,string1);
 
     /** --> Get neutrino masses. */
     struct oscillation osc;
@@ -918,6 +928,17 @@ int input_read_parameters(
                               pba->nu_datafile,
                               errmsg),
                errmsg, errmsg);
+    /**
+       printf("Deg = [%g %g %g %g %g %g %g %g]\n",
+           pba->flavour_deg[0],
+           pba->flavour_deg[1],
+           pba->flavour_deg[2],
+           pba->flavour_deg[3],
+           pba->flavour_deg[4],
+           pba->flavour_deg[5],
+           pba->flavour_deg[6],
+           pba->flavour_deg[7]);
+    */
 
     /** -->Get mixing matrix */
     getmixing(pba->theta14,
@@ -927,6 +948,8 @@ int input_read_parameters(
               pba->theta24,
               pba->theta23,
               pba->mixing_matrix);
+
+    //printmat44(pba->mixing_matrix,"Mixing matrix");
 
     /* Check if filenames for interpolation tables are given: */
     class_read_list_of_integers_or_default("use_ncdm_psd_files",pba->got_files,_FALSE_,N_ncdm);
@@ -3558,17 +3581,18 @@ int get_population(double dmtheta[4],
       ndim++;
     }
   }
-
+  /**
   printf("Read file %s containing %d lines. Effective number of dimensions: %d\n",
          datafile, lines, ndim);
 
+  */
   for (i=0; i<8; i++){
-    nlinear_interpolation(X,
-                          rhoall+i*lines,
-                          NX,
-                          ndim,
-                          p_interp
-                          );
+    deg[i] = nlinear_interpolation(X,
+                                   rhoall+i*lines,
+                                   NX,
+                                   ndim,
+                                   p_interp
+                                   );
   }
 
   free(X);

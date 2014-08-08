@@ -966,7 +966,7 @@ int background_ncdm_distribution(
     int i;
     for(i=0;i<4;i++){
       //Multiplying by transpose (=inverse) of mixing matrix.
-      *f0 += pba->mixing_matrix[i][n_ncdm]*1.0/pow(2*_PI_,3)*
+      *f0 += pow(pba->mixing_matrix[i][n_ncdm],2)*1.0/pow(2*_PI_,3)*
         (pba->flavour_deg[i]/(exp(q-pba->ksi_ncdm[i])+1.) +
          pba->flavour_deg[4+i]/(exp(q+pba->ksi_ncdm[i])+1.));
 
