@@ -1813,6 +1813,7 @@ int perturb_workspace_init(
   int index_mt=0;
   int index_ap;
   int l;
+  int n_ncdm;
 
   /** Compute maximum l_max for any multipole */;
   if (_scalars_) {
@@ -1906,7 +1907,8 @@ int perturb_workspace_init(
   if (_scalars_) {
 
     class_define_index(ppw->index_ap_ufa,pba->has_ur,index_ap,1);
-    class_define_index(ppw->index_ap_ncdmfa,pba->has_ncdm,index_ap,1);
+    class_define_index(ppw->index_ap_ncdmfa,pba->has_ncdm,index_ap,pba->N_ncdm);
+    class_define_index(ppw->index_ap_ncdmfa,pba->has_ncdm,index_ap,pba->N_ncdm);
 
   }
 
@@ -1927,7 +1929,10 @@ int perturb_workspace_init(
       ppw->approx[ppw->index_ap_ufa]=(int)ufa_off;
     }
     if (pba->has_ncdm == _TRUE_) {
-      ppw->approx[ppw->index_ap_ncdmfa]=(int)ncdmfa_off;
+      for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
+        ppw->approx[ppw->index_ap_ncdmfa+n_ncdm]=(int)ncdmfa_off;
+        ppw->approx[ppw->index_ap_ncdmnra+n_ncdm]=(int)ncdmnra_off;
+      }
     }
   }
 
@@ -2828,9 +2833,15 @@ int perturb_find_approximation_switches(
             }
           }
           if (pba->has_ncdm == _TRUE_) {
-            if ((interval_approx[index_switch-1][ppw->index_ap_ncdmfa]==(int)ncdmfa_off) &&
-                (interval_approx[index_switch][ppw->index_ap_ncdmfa]==(int)ncdmfa_on)) {
-              fprintf(stdout,"Mode k=%e: will switch on ncdm fluid approximation at tau=%e\n",k,interval_limit[index_switch]);
+            for (n_ncdm = 0; n_ncdm < pba->N_ncdm; n_ncdm++){
+              if ((interval_approx[index_switch-1][ppw->index_ap_ncdmfa+n_ncdm]==(int)ncdmfa_off) &&
+                  (interval_approx[index_switch][ppw->index_ap_ncdmfa+n_ncdm]==(int)ncdmfa_on)) {
+                fprintf(stdout,"Mode k=%e: will switch on ncdm fluid approximation at tau=%e for ncdm species %d\n",k,interval_limit[index_switch],n_ncdm);
+              }
+              if ((interval_approx[index_switch-1][ppw->index_ap_ncdmnra+n_ncdm]==(int)ncdmnra_off) &&
+                  (interval_approx[index_switch][ppw->index_ap_ncdmnra+n_ncdm]==(int)ncdmnra_on)) {
+                fprintf(stdout,"Mode k=%e: will switch on ncdm nonrelativistic approximation at tau=%e for ncdm species %d\n",k,interval_limit[index_switch],n_ncdm);
+              }
             }
           }
         }
@@ -3060,7 +3071,7 @@ int perturb_vector_init(
 
       for(n_ncdm = 0; n_ncdm < pba->N_ncdm; n_ncdm++){
         // Set value of ppv->l_max_ncdm:
-        if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_off){
+        if(ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] == (int)ncdmfa_off){
           /* reject inconsistent values of the number of mutipoles in ultra relativistic neutrino hierachy */
           class_test(ppr->l_max_ncdm < 4,
                      ppt->error_message,
@@ -3325,9 +3336,15 @@ int perturb_vector_init(
 
       if (pba->has_ncdm == _TRUE_) {
 
-        class_test(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on,
-                   ppt->error_message,
+        for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
+
+          class_test(ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] == (int)ncdmfa_on,
+                     ppt->error_message,
+                     "scalar initial conditions assume ncdm fluid approximation turned off");
+          class_test(ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on,
+                     ppt->error_message,
                    "scalar initial conditions assume ncdm fluid approximation turned off");
+        }
 
       }
 
@@ -4740,13 +4757,23 @@ int perturb_approximations(
 
     if (pba->has_ncdm == _TRUE_) {
 
-      if ((tau/tau_k > ppr->ncdm_fluid_trigger_tau_over_tau_k) &&
+      for (n_ncdm = 0; n_ncdm < pba->N_ncdm; n_ncdm++){
+
+        ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] = (int) ncdmfa_off;
+        ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] = (int) ncdmnra_off;
+
+        /* Perhaps use at most one of the two ncdm approximations. If the mass is larger than
+           the ncdmnra trigger mass, never use the sub-Hubble approximation. */
+        if (pba->M_ncdm[n_ncdm] > ppr->ncdmnra_M_trigger){
+
+          if (pvecback[pba->index_bg_p_ncdm1+n_ncdm]/pvecback[pba->index_bg_rho_ncdm1+n_ncdm] < ncdmnra_w_trigger)
+            ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] = (int) ncdmnra_on;
+        }
+        else if ((tau/tau_k > ppr->ncdm_fluid_trigger_tau_over_tau_k) &&
           (ppr->ncdm_fluid_approximation != ncdmfa_none)) {
 
-        ppw->approx[ppw->index_ap_ncdmfa] = (int)ncdmfa_on;
-      }
-      else {
-        ppw->approx[ppw->index_ap_ncdmfa] = (int)ncdmfa_off;
+          ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] = (int)ncdmfa_on;
+        }
       }
     }
   }

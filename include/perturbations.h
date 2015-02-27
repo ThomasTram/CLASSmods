@@ -30,6 +30,7 @@ enum tca_flags {tca_on, tca_off};
 enum rsa_flags {rsa_off, rsa_on};
 enum ufa_flags {ufa_off, ufa_on};
 enum ncdmfa_flags {ncdmfa_off, ncdmfa_on};
+enum ncdmnra_flags {ncdmnra_off, ncdmnra_on};
 
 //@}
 
@@ -524,6 +525,7 @@ struct perturb_workspace
   int index_ap_rsa; /**< index for radiation streaming approximation */
   int index_ap_ufa; /**< index for ur fluid approximation */
   int index_ap_ncdmfa; /**< index for ncdm fluid approximation */
+  int index_ap_ncdmnra; /**< index for non-relativistic approximation */
   int ap_size;      /**< number of relevant approximations for a given mode */
 
   int * approx;     /**< array of approximation flags holding at a given time: approx[index_ap] */

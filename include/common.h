@@ -536,6 +536,9 @@ struct precision
   double entropy_ini; /**< initial condition for entropy perturbation for isocurvature */
   double gw_ini;      /**< initial condition for tensor metric perturbation h */
 
+  double ncdmnra_M_trigger; /**< Use nonrelativistic approximation for ncdm species with M above this value */
+  double ncdmnra_w_trigger; /**< Switch to integrated hierarchies when w falls below this value */
+
   /**
    * default step \f$ d \tau \f$ in perturbation integration, in units of the timescale involved in the equations (usally, the min of \f$ 1/k \f$, \f$ 1/aH \f$, \f$ 1/\dot{\kappa} \f$)
    */

@@ -2512,6 +2512,9 @@ int input_read_parameters(
   class_read_double("ur_fluid_trigger_tau_over_tau_k",ppr->ur_fluid_trigger_tau_over_tau_k);
   class_read_double("ncdm_fluid_trigger_tau_over_tau_k",ppr->ncdm_fluid_trigger_tau_over_tau_k);
 
+  class_read_double("ncdm_nr_mass_trigger",ppr->ncdmnra_M_trigger);
+  class_read_double("ncdm_nr_w_trigger",ppr->ncdmnra_w_trigger);
+
   class_test(ppr->ur_fluid_trigger_tau_over_tau_k==ppr->radiation_streaming_trigger_tau_over_tau_k,
              errmsg,
              "please choose different values for precision parameters ur_fluid_trigger_tau_over_tau_k and radiation_streaming_trigger_tau_over_tau_k, in order to avoid switching two approximation schemes at the same time");
@@ -3148,6 +3151,9 @@ int input_default_precision ( struct precision * ppr ) {
 
   ppr->ncdm_fluid_approximation = ncdmfa_CLASS;
   ppr->ncdm_fluid_trigger_tau_over_tau_k = 31.;
+
+  ppr->ncdmnra_M_trigger = 1e2;
+  ppr->ncdmnra_w_trigger = 0.01;
 
   ppr->neglect_CMB_sources_below_visibility = 1.e-3;
 
