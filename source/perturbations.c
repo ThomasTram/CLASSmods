@@ -2940,10 +2940,10 @@ int perturb_vector_init(
 
   struct perturb_vector * ppv;
 
-  int index_pt;
+  int index_pt, index_pt_new;
   int l;
-  int n_ncdm,index_q,ncdm_l_size;
-  double rho_plus_p_ncdm,q,q2,epsilon,a,factor;
+  int n_ncdm,index_q,ncdm_l_size, any_ncdm_approx;
+  double rho_plus_p_ncdm,q,q2,epsilon,a,factor,q_over_m;
 
   /** - allocate a new perturb_vector structure to which ppw->pv will point at the end of the routine */
 
@@ -3082,6 +3082,7 @@ int perturb_vector_init(
               effectively 2. */
           ppv->l_max_ncdm[n_ncdm] = ppr->l_max_ncdm;
           ppv->q_size_ncdm[n_ncdm] = 2;
+        }
         else{
           /* reject inconsistent values of the number of mutipoles in ultra relativistic neutrino hierachy */
           class_test(ppr->l_max_ncdm < 4,
@@ -3820,7 +3821,7 @@ int perturb_vector_init(
                     index_pt++;
                   }
                 }
-                index_pt_new += 2*(ppv->l_max_ncdm[n_ncdm]+1)
+                index_pt_new += 2*(ppv->l_max_ncdm[n_ncdm]+1);
               }
               else{
                 /** No approximation for this species */
@@ -4731,6 +4732,8 @@ int perturb_approximations(
   /* (c) time scale of recombination, \f$ \tau_{\gamma} = 1/\kappa' \f$ */
   double tau_c;
 
+  int n_ncdm;
+
   /** - compute Fourier mode time scale = \f$ \tau_k = 1/k \f$ */
 
   class_test(k == 0.,
@@ -4829,7 +4832,7 @@ int perturb_approximations(
            the ncdmnra trigger mass, never use the sub-Hubble approximation. */
         if (pba->M_ncdm[n_ncdm] > ppr->ncdmnra_M_trigger){
 
-          if (pvecback[pba->index_bg_p_ncdm1+n_ncdm]/pvecback[pba->index_bg_rho_ncdm1+n_ncdm] < ncdmnra_w_trigger)
+          if (ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm] < ppr->ncdmnra_w_trigger)
             ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] = (int) ncdmnra_on;
         }
         else if ((tau/tau_k > ppr->ncdm_fluid_trigger_tau_over_tau_k) &&
