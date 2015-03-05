@@ -1908,7 +1908,7 @@ int perturb_workspace_init(
 
     class_define_index(ppw->index_ap_ufa,pba->has_ur,index_ap,1);
     class_define_index(ppw->index_ap_ncdmfa,pba->has_ncdm,index_ap,pba->N_ncdm);
-    class_define_index(ppw->index_ap_ncdmfa,pba->has_ncdm,index_ap,pba->N_ncdm);
+    class_define_index(ppw->index_ap_ncdmnra,pba->has_ncdm,index_ap,pba->N_ncdm);
 
   }
 
@@ -3791,8 +3791,10 @@ int perturb_vector_init(
               }
               else if ((pa_old[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_off) && (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on)){
                 /** We are in the non-relativistic approximation */
-                ppv->y[index_pt_new] = 0.0;
-                ppv->y[index_pt_new+1] = 0.0;
+                for(l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++){
+                  ppv->y[index_pt_new+l] = 0.0;
+                  ppv->y[index_pt_new+ppv->l_max_ncdm[n_ncdm]+1+l] = 0.0;
+                }
                 for(index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q++){
                   // Integrate over distributions:
                   q = pba->q_ncdm[n_ncdm][index_q];
@@ -3805,14 +3807,14 @@ int perturb_vector_init(
                       pba->w_ncdm[n_ncdm][index_q]*q2*pow(q_over_m,l)*
                       ppw->pv->y[index_pt];
 
-                    ppv->y[index_pt_new+ppv->l_max_ncdm[n_ncdm]+l] +=
+                    ppv->y[index_pt_new+ppv->l_max_ncdm[n_ncdm]+1+l] +=
                       pba->w_ncdm[n_ncdm][index_q]*q2*pow(q_over_m,l+2)*
                       ppw->pv->y[index_pt];
 
+                    index_pt++;
                   }
-                  //Jump to next momentum bin in ppw->pv->y:
-                  index_pt += (ppw->pv->l_max_ncdm[n_ncdm]+1);
                 }
+                index_pt_new += 2*(ppv->l_max_ncdm[n_ncdm]+1)
               }
               else{
                 /** No approximation for this species */
@@ -5439,10 +5441,10 @@ int perturb_total_stress_energy(
 
     /* non-cold dark matter contribution */
     if (pba->has_ncdm == _TRUE_) {
-      idx = ppw->pv->index_pt_psi0_ncdm1;
-      if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on){
-        // The perturbations are evolved integrated:
-        for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+      for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+        idx = ppw->pv->index_pt_psi0_ncdm1;
+        if(ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] == (int)ncdmfa_on){
+          // The perturbations are evolved integrated:
           rho_ncdm_bg = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
           p_ncdm_bg = ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
           pseudo_p_ncdm = ppw->pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm];
@@ -5462,10 +5464,33 @@ int perturb_total_stress_energy(
           ppw->delta_p += cg2_ncdm*rho_ncdm_bg*y[idx];
           idx += ppw->pv->l_max_ncdm[n_ncdm]+1;
         }
-      }
-      else{
-        // We must integrate to find perturbations:
-        for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+        else if (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on){
+          /** We are in the non-relativistic approximation */
+          // The perturbations are evolved integrated:
+          rho_ncdm_bg = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+          p_ncdm_bg = ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
+          rho_plus_p_ncdm = rho_ncdm_bg + p_ncdm_bg;
+          // These expressions need to be updated
+          rho_delta_ncdm = pba->M_ncdm[n_ncdm]*(pow(pba->a_today/a,5)*y[idx]+pow(pba->a_today/a,7)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1]);
+          rho_plus_p_theta_ncdm = pba->M_ncdm[n_ncdm]*pow(pba->a_today/a,7)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1];
+          rho_plus_p_shear_ncdm = 0.0; // Correct all these formulae!!!
+          delta_p_ncdm = 0.0;
+
+          if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
+            ppw->delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+            ppw->theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/
+              (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+            ppw->shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/
+              (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
+          }
+
+          ppw->delta_rho += rho_delta_ncdm;
+          ppw->rho_plus_p_theta += rho_plus_p_theta_ncdm;
+          ppw->rho_plus_p_shear += rho_plus_p_shear_ncdm;
+          ppw->delta_p += delta_p_ncdm;
+        }
+        else{
+          // We must integrate to find perturbations:
           rho_delta_ncdm = 0.0;
           rho_plus_p_theta_ncdm = 0.0;
           rho_plus_p_shear_ncdm = 0.0;
@@ -6363,11 +6388,11 @@ int perturb_print_variables(double tau,
     }
 
     if (pba->has_ncdm == _TRUE_) {
-      /** Get delta, deltaP/rho, theta, shear and store in array */
-      idx = ppw->pv->index_pt_psi0_ncdm1;
-      if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on){
-        // The perturbations are evolved integrated:
-        for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+      for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+        /** Get delta, deltaP/rho, theta, shear and store in array */
+        idx = ppw->pv->index_pt_psi0_ncdm1;
+        if(ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] == (int)ncdmfa_on){
+          // The perturbations are evolved integrated:
           rho_ncdm_bg = pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
           p_ncdm_bg = pvecback[pba->index_bg_p_ncdm1+n_ncdm];
           pseudo_p_ncdm = pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm];
@@ -6380,10 +6405,17 @@ int perturb_print_variables(double tau,
           delta_p_over_delta_rho_ncdm[n_ncdm] = w_ncdm*(1.0-1.0/(3.0+3.0*w_ncdm)*(3.0*w_ncdm-2.0+pseudo_p_ncdm/p_ncdm_bg));
           idx += ppw->pv->l_max_ncdm[n_ncdm]+1;
         }
-      }
-      else{
-        // We must integrate to find perturbations:
-        for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
+        else if(ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on) {
+          /** We are using non-relativistic approximation */
+          delta_ncdm[n_ncdm] = y[idx];
+          theta_ncdm[n_ncdm] = y[idx+1];
+          shear_ncdm[n_ncdm] = y[idx+2];
+          //This is the adiabatic sound speed:
+          delta_p_over_delta_rho_ncdm[n_ncdm] = y[idx];
+          idx += 2*(ppw->pv->l_max_ncdm[n_ncdm]+1);
+        }
+        else{
+          // We must integrate to find perturbations:
           rho_delta_ncdm = 0.0;
           rho_plus_p_theta_ncdm = 0.0;
           rho_plus_p_shear_ncdm = 0.0;
@@ -6417,11 +6449,13 @@ int perturb_print_variables(double tau,
             (ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]);
           delta_p_over_delta_rho_ncdm[n_ncdm] = delta_p_ncdm/rho_delta_ncdm;
 
+          /** Use later??
           if (delta_p_over_delta_rho_ncdm[n_ncdm] < -0.5){
             FILE * fid = fopen("integrand.dat","w");
 
             fclose(fid);
           }
+          */
         }
       }
     }
@@ -7307,15 +7341,15 @@ int perturb_derivs(double tau,
     //TBC: curvature in all ncdm
     if (pba->has_ncdm == _TRUE_) {
 
+      /** -----> loop over species */
+
       idx = pv->index_pt_psi0_ncdm1;
 
-      /** ---> first case: use a fluid approximation (ncdmfa) */
-      //TBC: curvature
-      if(ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on) {
+      for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
 
-        /** -----> loop over species */
-
-        for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
+        /** ---> first case: use a fluid approximation (ncdmfa) */
+        //TBC: curvature
+        if(ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] == (int)ncdmfa_on) {
 
           /** -----> define intermediate quantitites */
 
@@ -7383,15 +7417,22 @@ int perturb_derivs(double tau,
 
           idx += pv->l_max_ncdm[n_ncdm]+1;
         }
-      }
+        else if(ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on) {
+          /** Non relativistic approximation. Update formulae! */
 
-      /** ---> second case: use exact equation (Boltzmann hierarchy on momentum grid) */
+          for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++){
 
-      else {
+            dy[idx+l] = 0.0;
+            dy[idx+pv->l_max_ncdm[n_ncdm]+1+l] = 0.0;
 
-        /** -----> loop over species */
+          }
 
-        for (n_ncdm=0; n_ncdm<pv->N_ncdm; n_ncdm++) {
+          idx += 2*(pv->l_max_ncdm[n_ncdm]+1);
+        }
+
+        /** ---> final case: use exact equation (Boltzmann hierarchy on momentum grid) */
+
+        else {
 
           /** -----> loop over momentum */
 
