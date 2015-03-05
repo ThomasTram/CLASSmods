@@ -2652,6 +2652,7 @@ int perturb_find_approximation_switches(
   double next_tau_switch;
   int flag_ini;
   int num_switching_at_given_time;
+  int n_ncdm;
 
   /** - write in output arrays the initial time and approximation */
 
@@ -3071,7 +3072,17 @@ int perturb_vector_init(
 
       for(n_ncdm = 0; n_ncdm < pba->N_ncdm; n_ncdm++){
         // Set value of ppv->l_max_ncdm:
-        if(ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] == (int)ncdmfa_off){
+        if(ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] == (int)ncdmfa_on){
+          // In the fluid approximaation, hierarcy is cut at lmax = 2 and q dependance is integrated out:
+          ppv->l_max_ncdm[n_ncdm] = 2;
+          ppv->q_size_ncdm[n_ncdm] = 1;
+        }
+        else if (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on){
+          /** In the non-relativistic approximation we have the standard sized l hierarchy, but the q_size is
+              effectively 2. */
+          ppv->l_max_ncdm[n_ncdm] = ppr->l_max_ncdm;
+          ppv->q_size_ncdm[n_ncdm] = 2;
+        else{
           /* reject inconsistent values of the number of mutipoles in ultra relativistic neutrino hierachy */
           class_test(ppr->l_max_ncdm < 4,
                      ppt->error_message,
@@ -3079,11 +3090,6 @@ int perturb_vector_init(
           //Copy value from precision parameter:
           ppv->l_max_ncdm[n_ncdm] = ppr->l_max_ncdm;
           ppv->q_size_ncdm[n_ncdm] = pba->q_size_ncdm[n_ncdm];
-        }
-        else{
-          // In the fluid approximaation, hierarcy is cut at lmax = 2 and q dependance is integrated out:
-          ppv->l_max_ncdm[n_ncdm] = 2;
-          ppv->q_size_ncdm[n_ncdm] = 1;
         }
         index_pt += (ppv->l_max_ncdm[n_ncdm]+1)*ppv->q_size_ncdm[n_ncdm];
       }
