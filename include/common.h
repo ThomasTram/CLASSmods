@@ -536,7 +536,7 @@ struct precision
   double entropy_ini; /**< initial condition for entropy perturbation for isocurvature */
   double gw_ini;      /**< initial condition for tensor metric perturbation h */
 
-  double ncdmnra_M_trigger; /**< Use nonrelativistic approximation for ncdm species with M above this value */
+  double ncdmnra_m_trigger; /**< Use nonrelativistic approximation for ncdm species with mass in eV above this value */
   double ncdmnra_w_trigger; /**< Switch to integrated hierarchies when w falls below this value */
 
   /**

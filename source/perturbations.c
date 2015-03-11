@@ -337,7 +337,7 @@ int perturb_init(
 #pragma omp for schedule (dynamic)
 
         /* integrating backwards is slightly more optimal for parallel runs */
-        //for (index_k = 0; index_k < ppt->k_size; index_k++) {
+        //for (index_k = 0; index_k < ppt->k_size[index_md]; index_k++) {
         for (index_k = ppt->k_size[index_md]-1; index_k >=0; index_k--) {
 
           if ((ppt->perturbations_verbose > 2) && (abort == _FALSE_)) {
@@ -2276,6 +2276,11 @@ int perturb_solve(
 
   free(interval_number_of);
 
+  int jj;
+  for (jj=0; jj<=interval_number; jj++)
+    printf("%g ",interval_limit[jj]);
+  printf("\n");
+
   /** - fill the structure containing all fixed parameters, indices
       and workspaces needed by perturb_derivs */
 
@@ -2311,6 +2316,13 @@ int perturb_solve(
   /** - loop over intervals over which approximatiomn scheme is uniform. For each interval: */
 
   for (index_interval=0; index_interval<interval_number; index_interval++) {
+
+    if ((interval_limit[index_interval+1]-interval_limit[index_interval])<1e-6){
+      /** If more than one approx have changed, we would have the same time here.
+          Is it enough to add a simple continue statement? */
+      printf("continue\n");
+      continue;
+    }
 
     /** (a) fix the approximation scheme */
 
@@ -2358,7 +2370,7 @@ int perturb_solve(
     else{
       generic_evolver = evolver_ndf15;
     }
-
+    printf("[%g,%g]\n",interval_limit[index_interval],interval_limit[index_interval+1]);
     class_call(generic_evolver(perturb_derivs,
                                interval_limit[index_interval],
                                interval_limit[index_interval+1],
@@ -2807,13 +2819,14 @@ int perturb_find_approximation_switches(
         if (interval_approx[index_switch][index_ap] != interval_approx[index_switch-1][index_ap])
           num_switching_at_given_time++;
       }
-      class_test(num_switching_at_given_time != 1,
+
+      /** TBD class_test(num_switching_at_given_time != 1,
                  ppt->error_message,
                  "for k=%e, at tau=%g, you switch %d approximations at the same time, this cannot be handled. Usually happens in two cases: triggers for different approximations coincide, or one approx is reversible\n",
                  k,
                  interval_limit[index_switch],
                  num_switching_at_given_time);
-
+      */
       if (ppt->perturbations_verbose>2) {
 
         if (_scalars_) {
@@ -3686,9 +3699,6 @@ int perturb_vector_init(
 
           if ((pa_old[ppw->index_ap_ncdmfa] == (int)ncdmfa_off) && (ppw->approx[ppw->index_ap_ncdmfa] == (int)ncdmfa_on)) {
 
-            if (ppt->perturbations_verbose>2)
-              fprintf(stdout,"Mode k=%e: switch on ncdm fluid approximation at tau=%e\n",k,tau);
-
             if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
 
               ppv->y[ppv->index_pt_delta_g] =
@@ -3765,6 +3775,9 @@ int perturb_vector_init(
             for(n_ncdm = 0; n_ncdm < ppv->N_ncdm; n_ncdm++){
               if ((pa_old[ppw->index_ap_ncdmfa+n_ncdm] == (int)ncdmfa_off) && (ppw->approx[ppw->index_ap_ncdmfa+n_ncdm] == (int)ncdmfa_on)){
                 // We are in the fluid approximation
+                if (ppt->perturbations_verbose>2)
+                  fprintf(stdout,"Mode k=%e: switch on ncdm fluid approximation at tau=%e for ncdm species 0\n",k,tau,n_ncdm);
+
                 rho_plus_p_ncdm = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm]+
                   ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
                 for(l=0; l<=2; l++){
@@ -3798,6 +3811,8 @@ int perturb_vector_init(
               }
               else if ((pa_old[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_off) && (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on)){
                 /** We are in the non-relativistic approximation */
+                if (ppt->perturbations_verbose>2)
+                  fprintf(stdout,"Mode k=%e: switch on ncdm non-relativistic approximation at tau=%e for ncdm species %d\n",k,tau,n_ncdm);
                 for(l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++){
                   ppv->y[index_pt_new+l] = 0.0;
                   ppv->y[index_pt_new+ppv->l_max_ncdm[n_ncdm]+1+l] = 0.0;
@@ -4830,7 +4845,7 @@ int perturb_approximations(
 
         /* Perhaps use at most one of the two ncdm approximations. If the mass is larger than
            the ncdmnra trigger mass, never use the sub-Hubble approximation. */
-        if (pba->M_ncdm[n_ncdm] > ppr->ncdmnra_M_trigger){
+        if (pba-> m_ncdm_in_eV[n_ncdm] > ppr->ncdmnra_m_trigger){
 
           if (ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm]/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm] < ppr->ncdmnra_w_trigger)
             ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] = (int) ncdmnra_on;
