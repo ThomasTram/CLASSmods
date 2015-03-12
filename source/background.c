@@ -629,6 +629,7 @@ int background_free_input(
       free(pba->q_ncdm_bg[k]);
       free(pba->w_ncdm_bg[k]);
       free(pba->dlnf0_dlnq_ncdm[k]);
+      free(pba->q_moments_ncdm[k]);
     }
 
     free(pba->q_ncdm);
@@ -636,6 +637,7 @@ int background_free_input(
     free(pba->q_ncdm_bg);
     free(pba->w_ncdm_bg);
     free(pba->dlnf0_dlnq_ncdm);
+    free(pba->q_moments_ncdm);
     free(pba->q_size_ncdm);
     free(pba->q_size_ncdm_bg);
     free(pba->M_ncdm);
@@ -1065,6 +1067,7 @@ int background_ncdm_init(
   class_alloc(pba->q_ncdm_bg, sizeof(double*)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->w_ncdm_bg, sizeof(double*)*pba->N_ncdm,pba->error_message);
   class_alloc(pba->dlnf0_dlnq_ncdm, sizeof(double*)*pba->N_ncdm,pba->error_message);
+  class_alloc(pba->q_moments_ncdm, sizeof(double*)*pba->N_ncdm,pba->error_message);
 
   /* Allocate pointers: */
   class_alloc(pba->q_size_ncdm,sizeof(int)*pba->N_ncdm,pba->error_message);
@@ -1165,6 +1168,19 @@ int background_ncdm_init(
              k+1,
              pba->q_size_ncdm_bg[k]);
 
+    /** - Allocate and compute q^{2n} moments of the distribution function */
+    class_alloc(pba->q_moments_ncdm[k],
+                4*sizeof(double),
+                pba->error_message);
+    class_call(background_ncdm_psd_moments(pba->q_ncdm_bg[k],
+                                           pba->q_ncdm_bg[k],
+                                           pba->q_size_ncdm_bg[k],
+                                           4,
+                                           pba->q_moments_ncdm[k]
+                                           ),
+               pba->error_message,pba->error_message);
+
+    /** Compute logarithmic derivative of p.s.d. */
     class_alloc(pba->dlnf0_dlnq_ncdm[k],
                 pba->q_size_ncdm[k]*sizeof(double),
                 pba->error_message);
@@ -1298,6 +1314,40 @@ int background_ncdm_momenta(
   if (p!=NULL) *p *= factor2;
   if (drho_dM!=NULL) *drho_dM *= factor2;
   if (pseudo_p!=NULL) *pseudo_p *=factor2;
+
+  return _SUCCESS_;
+}
+
+/** Compute even moments int_0^infty q^(2*j) dq f0(q) of the distribution function
+    where 1<=j<=n. */
+int background_ncdm_psd_moments(
+                                double * qvec,
+                                double * wvec,
+                                int qsize,
+                                int n,
+                                double *I
+                                ) {
+
+  int index_q, index_moment;
+  double q2;
+
+  for (index_moment=0; index_moment<n; index_moment++)
+    I[index_moment] = 0.;
+
+  /** - loop over momenta */
+  for (index_q=0; index_q<qsize; index_q++) {
+
+    /* squared momentum */
+    q2 = qvec[index_q]*qvec[index_q];
+
+    /** loop over moments */
+    for (index_moment=0; index_moment<n; index_moment++){
+
+      I[index_moment] += pow(q2,index_moment+1)*wvec[index_q];
+
+    }
+
+  }
 
   return _SUCCESS_;
 }
