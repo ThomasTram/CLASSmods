@@ -5491,14 +5491,16 @@ int perturb_total_stress_energy(
         else if (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on){
           /** We are in the non-relativistic approximation */
           // The perturbations are evolved integrated:
+          factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,3)*pba->M_ncdm[n_ncdm];
           rho_ncdm_bg = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
           p_ncdm_bg = ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
           rho_plus_p_ncdm = rho_ncdm_bg + p_ncdm_bg;
           // These expressions need to be updated
-          rho_delta_ncdm = pba->M_ncdm[n_ncdm]*(pow(pba->a_today/a,5)*y[idx]+pow(pba->a_today/a,7)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1]);
-          rho_plus_p_theta_ncdm = pba->M_ncdm[n_ncdm]*pow(pba->a_today/a,7)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1];
-          rho_plus_p_shear_ncdm = 0.0; // Correct all these formulae!!!
-          delta_p_ncdm = 0.0;
+          rho_delta_ncdm = factor*(y[idx]+0.5*pow(pba->a_today/a,2)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1]);
+          rho_plus_p_theta_ncdm = factor*k*(pba->a_today/a)*y[idx+1];
+          rho_plus_p_shear_ncdm = 2.0/3.0*factor*
+            (pow(pba->a_today/a,2)*y[idx+2]+0.5*pow(pba->a_today/a,4)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1+2]);
+          delta_p_ncdm = 1./3.*factor*pow(pba->a_today/a,2)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1];
 
           if ((ppt->has_source_delta_ncdm == _TRUE_) || (ppt->has_source_theta_ncdm == _TRUE_) || (ppt->has_source_delta_m == _TRUE_)) {
             ppw->delta_ncdm[n_ncdm] = rho_delta_ncdm/ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
@@ -6430,12 +6432,23 @@ int perturb_print_variables(double tau,
           idx += ppw->pv->l_max_ncdm[n_ncdm]+1;
         }
         else if(ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on) {
+          /** We are in the non-relativistic approximation */
+          factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,3)*pba->M_ncdm[n_ncdm];
+          rho_ncdm_bg = ppw->pvecback[pba->index_bg_rho_ncdm1+n_ncdm];
+          p_ncdm_bg = ppw->pvecback[pba->index_bg_p_ncdm1+n_ncdm];
+
+          rho_delta_ncdm = factor*(y[idx]+0.5*pow(pba->a_today/a,2)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1]);
+          rho_plus_p_theta_ncdm = factor*k*(pba->a_today/a)*y[idx+1];
+          rho_plus_p_shear_ncdm = 2.0/3.0*factor*
+            (pow(pba->a_today/a,2)*y[idx+2]+0.5*pow(pba->a_today/a,4)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1+2]);
+          delta_p_ncdm = 1./3.*factor*pow(pba->a_today/a,2)*y[idx+ppw->pv->l_max_ncdm[n_ncdm]+1];
+
           /** We are using non-relativistic approximation */
-          delta_ncdm[n_ncdm] = y[idx];
-          theta_ncdm[n_ncdm] = y[idx+1];
-          shear_ncdm[n_ncdm] = y[idx+2];
-          //This is the adiabatic sound speed:
-          delta_p_over_delta_rho_ncdm[n_ncdm] = y[idx];
+          delta_ncdm[n_ncdm] = rho_delta_ncdm/rho_ncdm_bg;
+          theta_ncdm[n_ncdm] = rho_plus_p_theta_ncdm/(rho_ncdm_bg+p_ncdm_bg);
+          shear_ncdm[n_ncdm] = rho_plus_p_shear_ncdm/(rho_ncdm_bg+p_ncdm_bg);
+          delta_p_over_delta_rho_ncdm[n_ncdm] = delta_p_ncdm/rho_delta_ncdm;
+
           idx += 2*(ppw->pv->l_max_ncdm[n_ncdm]+1);
         }
         else{
@@ -6793,7 +6806,7 @@ int perturb_derivs(double tau,
   int l;
 
   /* scale factor and other background quantities */
-  double a,a2,a_prime_over_a,R;
+  double a,a2,a_prime_over_a,R, a_rel, a2_rel;
 
   /* short-cut names for the fields of the input structure */
   struct perturb_parameters_and_workspace * pppaw;
@@ -6832,9 +6845,10 @@ int perturb_derivs(double tau,
   double w,w_prime;
 
   /* for use with non-cold dark matter (ncdm): */
-  int index_q,n_ncdm,idx;
+  int index_q,n_ncdm,idx, B_idx;
   double q,epsilon,dlnf0_dlnq,qk_div_epsilon;
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
+  double zeroterm;
 
   /* for use with curvature */
   double cotKgen, sqrt_absK;
@@ -6873,6 +6887,9 @@ int perturb_derivs(double tau,
              pba->error_message,
              error_message);
 
+  a_rel = pvecback[pba->index_bg_a]/pba->a_today;
+  a2_rel = a_rel*a_rel;
+
   class_call(thermodynamics_at_z(pba,
                                  pth,
                                  1./pvecback[pba->index_bg_a]-1.,  /* redshift z=1/a-1 */
@@ -6900,6 +6917,7 @@ int perturb_derivs(double tau,
 
   a = pvecback[pba->index_bg_a];
   a2 = a*a;
+
   a_prime_over_a = pvecback[pba->index_bg_H] * a;
   R = 4./3. * pvecback[pba->index_bg_rho_g]/pvecback[pba->index_bg_rho_b];
 
@@ -7443,13 +7461,22 @@ int perturb_derivs(double tau,
         }
         else if(ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on) {
           /** Non relativistic approximation. Update formulae! */
+          B_idx = idx + pv->l_max_ncdm[n_ncdm]+1;
 
+          /** Set free streaming hierarchy */
           for(l=0; l<pv->l_max_ncdm[n_ncdm]; l++){
-
-            dy[idx+l] = 0.0;
-            dy[idx+pv->l_max_ncdm[n_ncdm]+1+l] = 0.0;
-
+            if (l==0)
+              zeroterm = 0.0;
+            else
+              zeroterm = y[B_idx+l-1];
+            dy[idx+l] = k/(2.*l+1.0)/a_rel*(l*zeroterm-(l+1.0)*y[idx+l+1]+0.5/a2_rel*(l+1.0)*y[B_idx+l+1]);
+            dy[B_idx+l] = -(l+1.0)/(2.*l+1.0)*k/a_rel*y[B_idx+l+1];
           }
+          dy[idx+pv->l_max_ncdm[n_ncdm]] = 0.;
+          dy[B_idx+pv->l_max_ncdm[n_ncdm]] = 0.;
+
+          /** Set remaining source terms */
+
 
           idx += 2*(pv->l_max_ncdm[n_ncdm]+1);
         }
