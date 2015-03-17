@@ -539,6 +539,10 @@ struct perturb_workspace
   int max_l_max;    /**< maximum l_max for any multipole */
   double * s_l;     /**< array of freestreaming coefficients s_l = sqrt(1-K*(l^2-1)/k^2) */
 
+  int ncdmnra_p_max; /**< maximum order of p in expansion W_{p,\ell} */
+  double * binomial_a; /**< binomial coefficients Binomial[1/2,j] for 0<=j<=(ncdmnra_p_max+1)/2 */
+  double * binomial_b; /**< binomial coefficients Binomial[-1/2,j] for 0<=j<=(ncdmnra_p_max+1)/2 */
+  double * q_moments; /**< N_ncdm vectors, each containing the \int dq q^2 (q/M)^p f0 moments, 0<=p<=ncdmnra_p_max */
   //@}
 
 };
@@ -622,6 +626,7 @@ extern "C" {
                              );
 
   int perturb_workspace_free(
+                             struct background * pba,
                              struct perturbs * ppt,
                              int index_md,
                              struct perturb_workspace * ppw
@@ -759,6 +764,17 @@ extern "C" {
                                      struct background * pba,
                                      struct perturbs * ppt
                                      );
+
+  int perturb_ncdm_quantities(struct background * pba,
+                              struct perturbs * ppt,
+                              struct perturb_workspace * ppw,
+                              double k,
+                              double * y,
+                              double * rho_delta,
+                              double * rho_plus_p_theta,
+                              double * rho_plus_p_shear,
+                              double * delta_p);
+
   int perturb_derivs(
                      double tau,
                      double * y,
