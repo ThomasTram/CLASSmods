@@ -1318,20 +1318,20 @@ int background_ncdm_psd_moments(
   double q2,q_over_M, pow_q_over_M;
 
 
-  for (index_moment=0; index_moment<=n; index_moment++)
-    I[index_moment] = 0.;
+  for (index_moment=-1; index_moment<=n; index_moment++)
+    I[index_moment+1] = 0.;
 
   /** - loop over momenta */
   for (index_q=0; index_q<qsize; index_q++) {
 
     q2 = qvec[index_q]*qvec[index_q];
     q_over_M = qvec[index_q]/M;
-    pow_q_over_M = 1.0;
+    pow_q_over_M = 1.0/q_over_M; /** First moments is (q/M)^-1 = M/q */
 
     /** loop over moments */
-    for (index_moment=0; index_moment<=n; index_moment++){
+    for (index_moment=-1; index_moment<=n; index_moment++){
 
-      I[index_moment] += q2*pow_q_over_M*wvec[index_q];
+      I[index_moment+1] += q2*pow_q_over_M*wvec[index_q];
       pow_q_over_M *= q_over_M;
 
     }

@@ -3165,7 +3165,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->ncdm_fluid_approximation = ncdmfa_CLASS;
   ppr->ncdm_fluid_trigger_tau_over_tau_k = 31.;
 
-  ppr->ncdmnra_p_max = 1;
+  ppr->ncdmnra_p_max = 2;
   ppr->ncdmnra_m_trigger = 1e2;
   ppr->ncdmnra_w_trigger = 0.01;
 

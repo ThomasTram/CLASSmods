@@ -1970,7 +1970,7 @@ int perturb_workspace_init(
     if (pba->has_ncdm == _TRUE_){
 
       ppw->ncdmnra_p_max = ppr->ncdmnra_p_max;
-      class_alloc(ppw->q_moments, pba->N_ncdm*(ppw->ncdmnra_p_max+1)*sizeof(double), ppt->error_message);
+      class_alloc(ppw->q_moments, pba->N_ncdm*(ppw->ncdmnra_p_max+2)*sizeof(double), ppt->error_message);
       class_alloc(ppw->binomial_a, (ppw->ncdmnra_p_max+1)*sizeof(double), ppt->error_message);
       class_alloc(ppw->binomial_b, (ppw->ncdmnra_p_max+1)*sizeof(double), ppt->error_message);
 
@@ -1981,7 +1981,7 @@ int perturb_workspace_init(
                                                pba->q_size_ncdm_bg[n_ncdm],
                                                ppw->ncdmnra_p_max,
                                                pba->M_ncdm[n_ncdm],
-                                               ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+1)
+                                               ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+2)
                                                ),
                    pba->error_message,ppt->error_message);
       }
@@ -3876,15 +3876,15 @@ int perturb_vector_init(
 
                   for(l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++){
 
-                    ppv->y[index_pt_new+l] += w_times_q2*pow_q_over_m*ppw->pv->y[index_pt+l];
+                    ppv->y[index_pt_new+p*(ppv->l_max_ncdm[n_ncdm]+1)+l] += w_times_q2*pow_q_over_m*ppw->pv->y[index_pt+l];
 
                   }
-                  /** Jump to next order p */
-                  index_pt_new += (ppv->l_max_ncdm[n_ncdm]+1);
                 }
                 //Jump to next momentum bin in ppw->pv->y:
                 index_pt += (ppw->pv->l_max_ncdm[n_ncdm]+1);
               }
+              /** Jump to next species in ppv->y: */
+              index_pt_new += (ppw->ncdmnra_p_max+1)*(ppv->l_max_ncdm[n_ncdm]+1);
             }
             else{
               /** No approximation for this species */
@@ -6799,7 +6799,10 @@ int perturb_print_variables(double tau,
          delta_p[n_ncdm] += ppw->binomial_b[j-1]*pow(pba->a_today/a,2*j)*y[idx+(2*j)*(ppw->pv->l_max_ncdm[n_ncdm]+1)];
        delta_p[n_ncdm] *= factor/3.;
 
-       rho_plus_p_theta[n_ncdm] = k*factor*pba->M_ncdm[n_ncdm]*(pba->a_today/a)*y[idx+1+(ppw->pv->l_max_ncdm[n_ncdm]+1)];
+       if (ppw->ncdmnra_p_max >= 1)
+         rho_plus_p_theta[n_ncdm] = k*factor*pba->M_ncdm[n_ncdm]*(pba->a_today/a)*y[idx+1+(ppw->pv->l_max_ncdm[n_ncdm]+1)];
+       else
+         rho_plus_p_theta[n_ncdm] = 0.0;
 
        rho_plus_p_shear[n_ncdm] = 0.0;
        for (j=1; j<=(ppw->ncdmnra_p_max/2); j++)
@@ -7538,15 +7541,19 @@ int perturb_derivs(double tau,
           /** Non relativistic approximation. */
 
           /** Loop over order */
-          for (index_p=0; index_p<pv->q_size_ncdm[n_ncdm]; index_p++){
+          for (index_p=0; index_p<=ppw->ncdmnra_p_max; index_p++){
 
             /** Set free streaming hierarchy */
             for(l=0; l<=pv->l_max_ncdm[n_ncdm]; l++){
 
               dy[idx+l] = 0.0;
 
-              for (j=0; j<= (ppw->ncdmnra_p_max-index_p-1)/2; j++){
-
+              for (j=0; j<= floor((ppw->ncdmnra_p_max-index_p-1.)/2.); j++){
+                /**                printf("j=%d, idx_ini=%d, tot_size = %d, l=%d, idx=%d, W_plus_idx = %d, max_j = %d\n",j,pv->index_pt_psi0_ncdm1,
+                       (pv->l_max_ncdm[n_ncdm]+1)*(ppw->ncdmnra_p_max+1),l,
+                       idx-pv->index_pt_psi0_ncdm1,
+                       idx+(2*j+1)*(pv->l_max_ncdm[n_ncdm]+1)+(l+1)-pv->index_pt_psi0_ncdm1,
+                       (int) floor((ppw->ncdmnra_p_max-index_p-1.)/2.));*/
                 if (l==0)
                   W_minus = 0.0;
                 else
@@ -7563,16 +7570,17 @@ int perturb_derivs(double tau,
 
             }
             /** Set source terms at order p */
-            q_moments = ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+1);
-            dy[idx] += metric_continuity*(index_p+3.0)/3.0*q_moments[index_p];
-            dy[idx+2] += -2./15.*metric_shear*(index_p+3.0)/3.0*q_moments[index_p];
-            for (j=0; j<=((ppw->ncdmnra_p_max-index_p-1)/2); j++){
+            q_moments = ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+2);
+            //printf("p=%d, ptr increase= %d, q_moment = %g\n",index_p,n_ncdm*(ppw->ncdmnra_p_max+1),q_moments[index_p+1]);
+            dy[idx] += metric_continuity*(index_p+3.0)/3.0*q_moments[index_p+1];
+            dy[idx+2] += -2./15.*metric_shear*(index_p+3.0)/3.0*q_moments[index_p+1];
+            for (j=0; j<=floor((ppw->ncdmnra_p_max-index_p-1.)/2.); j++){
               if (j==0)
                 bin_b = 0;
               else
                 bin_b = ppw->binomial_b[j-1];
               dy[idx+1] += -metric_euler/(3.*k)/pow(a,2*index_p-1)*
-                (bin_b+(2+index_p)*ppw->binomial_a[j])*q_moments[index_p+2*j-1];
+                (bin_b+(2+index_p)*ppw->binomial_a[j])*q_moments[index_p+2*j];
             }
             /** jump to next order p (or next species) */
             idx += (pv->l_max_ncdm[n_ncdm]+1);
