@@ -256,7 +256,6 @@ int perturb_init(
              ppt->error_message,
              ppt->error_message);
 
-
   /** - create an array of workspaces in multi-thread case */
 
 #ifdef _OPENMP
@@ -367,15 +366,6 @@ int perturb_init(
 
           tspent += tstop-tstart;
 #endif
-
-          if (pppw[thread]->index_ikout!=-1){
-            /** Emergency dump perturbation output */
-            printf("Dump output\n");
-            class_call_parallel(emergency_output_perturbations(pba,ppt),
-                                ppt->error_message,
-                                ppt->error_message);
-          }
-
 
 #pragma omp flush(abort)
 
@@ -1970,18 +1960,18 @@ int perturb_workspace_init(
     if (pba->has_ncdm == _TRUE_){
 
       ppw->ncdmnra_p_max = ppr->ncdmnra_p_max;
-      class_alloc(ppw->q_moments, pba->N_ncdm*(ppw->ncdmnra_p_max+2)*sizeof(double), ppt->error_message);
+      class_alloc(ppw->q_moments, pba->N_ncdm*(ppw->ncdmnra_p_max+3)*sizeof(double), ppt->error_message);
       class_alloc(ppw->binomial_a, (ppw->ncdmnra_p_max+1)*sizeof(double), ppt->error_message);
       class_alloc(ppw->binomial_b, (ppw->ncdmnra_p_max+1)*sizeof(double), ppt->error_message);
 
       for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
         /** - Compute q^2 (q/M)^j moments of the distribution function */
         class_call(background_ncdm_psd_moments(pba->q_ncdm_bg[n_ncdm],
-                                               pba->q_ncdm_bg[n_ncdm],
+                                               pba->w_ncdm_bg[n_ncdm],
                                                pba->q_size_ncdm_bg[n_ncdm],
-                                               ppw->ncdmnra_p_max,
+                                               ppw->ncdmnra_p_max+1,
                                                pba->M_ncdm[n_ncdm],
-                                               ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+2)
+                                               ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+3)
                                                ),
                    pba->error_message,ppt->error_message);
       }
@@ -1989,10 +1979,10 @@ int perturb_workspace_init(
       ppw->binomial_a[0] = 1.0;
       ppw->binomial_b[0] = 1.0;
 
-      for (j=0; j<ppw->ncdmnra_p_max; j++){
+      for (j=1; j<=ppw->ncdmnra_p_max; j++){
         dbl_2j = 2.0*j;
-        ppw->binomial_a[j+1] = ppw->binomial_a[j]*(3.0-dbl_2j)/dbl_2j;
-        ppw->binomial_b[j+1] = ppw->binomial_b[j]*(1.0-dbl_2j)/dbl_2j;
+        ppw->binomial_a[j] = ppw->binomial_a[j-1]*(3.0-dbl_2j)/dbl_2j;
+        ppw->binomial_b[j] = ppw->binomial_b[j-1]*(1.0-dbl_2j)/dbl_2j;
       }
 
     }
@@ -2417,7 +2407,7 @@ int perturb_solve(
     else{
       generic_evolver = evolver_ndf15;
     }
-    printf("[%g,%g]\n",interval_limit[index_interval],interval_limit[index_interval+1]);
+
     class_call(generic_evolver(perturb_derivs,
                                interval_limit[index_interval],
                                interval_limit[index_interval+1],
@@ -3872,19 +3862,24 @@ int perturb_vector_init(
 
                 for (p=0; p <= ppw->ncdmnra_p_max; p++){
 
-                  pow_q_over_m *= q_over_m;
-
-                  for(l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++){
-
+                  for(l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++)
                     ppv->y[index_pt_new+p*(ppv->l_max_ncdm[n_ncdm]+1)+l] += w_times_q2*pow_q_over_m*ppw->pv->y[index_pt+l];
 
-                  }
+                  pow_q_over_m *= q_over_m;
+
                 }
                 //Jump to next momentum bin in ppw->pv->y:
                 index_pt += (ppw->pv->l_max_ncdm[n_ncdm]+1);
               }
               /** Jump to next species in ppv->y: */
               index_pt_new += (ppw->ncdmnra_p_max+1)*(ppv->l_max_ncdm[n_ncdm]+1);
+              int idx;
+              idx = ppv->index_pt_psi0_ncdm1;
+              for (l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++){
+                for (p=0; p <= ppw->ncdmnra_p_max; p++){
+                  printf("l=%d, p=%d, W_{p,l}=%.16e\n",l,p,ppv->y[idx+p*(ppv->l_max_ncdm[n_ncdm]+1)+l]*pow(pba->M_ncdm[n_ncdm],p));
+                }
+              }
             }
             else{
               /** No approximation for this species */
@@ -6563,7 +6558,12 @@ int perturb_print_variables(double tau,
     class_store_double(dataptr, theta_scf, pba->has_scf, storeidx);
 
     //fprintf(ppw->perturb_output_file,"\n");
-
+    /**
+    int kk;
+    for (kk=0; kk<storeidx; kk++)
+      class_fprintf_double(stderr,dataptr[kk],_TRUE_);
+    fprintf(stderr,"\n");
+    */
   }
 
   if (_tensors_) {
@@ -6695,73 +6695,15 @@ int perturb_print_variables(double tau,
 
 }
 
- int emergency_output_perturbations(
-                         struct background * pba,
-                         struct perturbs * ppt
-                         ) {
-
-  FILE * out;
-  FileName file_name;
-  int index_ikout, index_md;
-  double k;
-
-  for (index_ikout=0; index_ikout<ppt->k_output_values_num; index_ikout++){
-
-    if (ppt->has_scalars == _TRUE_){
-      index_md = ppt->index_md_scalars;
-      k = ppt->k[index_md][ppt->index_k_output_values[index_md*ppt->k_output_values_num+index_ikout]];
-      sprintf(file_name,"%s%s%d%s","output/dump_","perturbations_k",index_ikout,"_s.dat");
-      class_open(out, file_name, "w", ppt->error_message);
-      fprintf(out,"#scalar perturbations for mode k = %.*e Mpc^(-1)\n",_OUTPUTPRECISION_,k);
-      output_print_data(out,
-                        ppt->scalar_titles,
-                        ppt->scalar_perturbations_data[index_ikout],
-                        ppt->size_scalar_perturbation_data[index_ikout]);
-
-      fclose(out);
-    }
-    if (ppt->has_vectors == _TRUE_){
-      index_md = ppt->index_md_vectors;
-      k = ppt->k[index_md][ppt->index_k_output_values[index_md*ppt->k_output_values_num+index_ikout]];
-      sprintf(file_name,"%s%s%d%s","output/dump_","perturbations_k",index_ikout,"_v.dat");
-      class_open(out, file_name, "w", ppt->error_message);
-      fprintf(out,"#vector perturbations for mode k = %.*e Mpc^(-1)\n",_OUTPUTPRECISION_,k);
-      output_print_data(out,
-                        ppt->vector_titles,
-                        ppt->vector_perturbations_data[index_ikout],
-                        ppt->size_vector_perturbation_data[index_ikout]);
-
-      fclose(out);
-    }
-    if (ppt->has_tensors == _TRUE_){
-      index_md = ppt->index_md_tensors;
-      k = ppt->k[index_md][ppt->index_k_output_values[index_md*ppt->k_output_values_num+index_ikout]];
-      sprintf(file_name,"%s%s%d%s","output/dump_","perturbations_k",index_ikout,"_t.dat");
-      class_open(out, file_name, "w", ppt->error_message);
-      fprintf(out,"#tensor perturbations for mode k = %.*e Mpc^(-1)\n",_OUTPUTPRECISION_,k);
-      output_print_data(out,
-                        ppt->tensor_titles,
-                        ppt->tensor_perturbations_data[index_ikout],
-                        ppt->size_tensor_perturbation_data[index_ikout]);
-
-      fclose(out);
-    }
-
-
-  }
-  return _SUCCESS_;
-
-}
-
- int perturb_ncdm_quantities(struct background * pba,
-                             struct perturbs * ppt,
-                             struct perturb_workspace * ppw,
-                             double k,
-                             double * y,
-                             double * rho_delta,
-                             double * rho_plus_p_theta,
-                             double * rho_plus_p_shear,
-                             double * delta_p){
+int perturb_ncdm_quantities(struct background * pba,
+                            struct perturbs * ppt,
+                            struct perturb_workspace * ppw,
+                            double k,
+                            double * y,
+                            double * rho_delta,
+                            double * rho_plus_p_theta,
+                            double * rho_plus_p_shear,
+                            double * delta_p){
    int idx, index_q, n_ncdm, j;
    double rho_ncdm, p_ncdm, rho_plus_p_ncdm, pseudo_p_ncdm, w_ncdm, cg2_ncdm, factor;
    double a, a2, q, q2, epsilon;
@@ -6800,14 +6742,14 @@ int perturb_print_variables(double tau,
        delta_p[n_ncdm] *= factor/3.;
 
        if (ppw->ncdmnra_p_max >= 1)
-         rho_plus_p_theta[n_ncdm] = k*factor*pba->M_ncdm[n_ncdm]*(pba->a_today/a)*y[idx+1+(ppw->pv->l_max_ncdm[n_ncdm]+1)];
+         rho_plus_p_theta[n_ncdm] = k*factor*(pba->a_today/a)*y[idx+1+(ppw->pv->l_max_ncdm[n_ncdm]+1)];
        else
          rho_plus_p_theta[n_ncdm] = 0.0;
 
        rho_plus_p_shear[n_ncdm] = 0.0;
        for (j=1; j<=(ppw->ncdmnra_p_max/2); j++)
          rho_plus_p_shear[n_ncdm] += ppw->binomial_b[j-1]*pow(pba->a_today/a,2*j)*y[idx+2+(2*j)*(ppw->pv->l_max_ncdm[n_ncdm]+1)];
-       rho_plus_p_shear[n_ncdm] *=  2.0/3.0;
+       rho_plus_p_shear[n_ncdm] *=  2.0/3.0*factor;
 
        idx += (ppw->pv->l_max_ncdm[n_ncdm]+1)*(ppw->ncdmnra_p_max+1);
 
@@ -6841,6 +6783,10 @@ int perturb_print_variables(double tau,
        delta_p[n_ncdm] *= factor/3.;
      }
    }
+
+   //n_ncdm = 0;
+   //printf("%.16e %.16e %.16e %.16e\n",rho_delta[n_ncdm],rho_plus_p_theta[n_ncdm],rho_plus_p_shear[n_ncdm],delta_p[n_ncdm] );
+
    return _SUCCESS_;
  }
 
@@ -7539,6 +7485,7 @@ int perturb_derivs(double tau,
         }
         else if(ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on) {
           /** Non relativistic approximation. */
+          q_moments = ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+3);
 
           /** Loop over order */
           for (index_p=0; index_p<=ppw->ncdmnra_p_max; index_p++){
@@ -7564,24 +7511,44 @@ int perturb_derivs(double tau,
                 else
                   W_plus = y[idx+(2*j+1)*(pv->l_max_ncdm[n_ncdm]+1)+(l+1)];
 
-                dy[idx+l] += ppw->binomial_b[j]/pow(a,2*j+1)*k/(2.*l+1.0)*
-                  (l*W_plus-(l+1)*W_minus);
+                dy[idx+l] += ppw->binomial_b[j]/pow(a,2*j+1)*k/(2.*l+1.0)*(l*W_minus-(l+1)*W_plus);
               }
 
             }
             /** Set source terms at order p */
-            q_moments = ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+2);
-            //printf("p=%d, ptr increase= %d, q_moment = %g\n",index_p,n_ncdm*(ppw->ncdmnra_p_max+1),q_moments[index_p+1]);
-            dy[idx] += metric_continuity*(index_p+3.0)/3.0*q_moments[index_p+1];
-            dy[idx+2] += -2./15.*metric_shear*(index_p+3.0)/3.0*q_moments[index_p+1];
+
+            dy[idx] += -metric_continuity/3.0*(index_p+3.0)*q_moments[index_p+1];
+
+            dy[idx+2] += 2./15.*metric_shear*(index_p+3.0)*q_moments[index_p+1];
+
             for (j=0; j<=floor((ppw->ncdmnra_p_max-index_p-1.)/2.); j++){
               if (j==0)
                 bin_b = 0;
               else
                 bin_b = ppw->binomial_b[j-1];
-              dy[idx+1] += -metric_euler/(3.*k)/pow(a,2*index_p-1)*
+              dy[idx+1] += metric_euler/(3.*k)/pow(a,2*index_p-1)*
                 (bin_b+(2+index_p)*ppw->binomial_a[j])*q_moments[index_p+2*j];
             }
+
+
+            if (index_p == ppw->ncdmnra_p_max){
+              for(l=0; l<=pv->l_max_ncdm[n_ncdm]; l++){
+                if (l==0)
+                  W_minus = 0.0;
+                else
+                  W_minus = y[idx+(l-1)]*q_moments[ppw->ncdmnra_p_max+2]/q_moments[ppw->ncdmnra_p_max+1];
+
+                if (l==pv->l_max_ncdm[n_ncdm])
+                  W_plus = 0.0;
+                else
+                  W_plus = y[idx+(l+1)]*q_moments[ppw->ncdmnra_p_max+2]/q_moments[ppw->ncdmnra_p_max+1];
+
+                //                dy[idx+l] += ppw->binomial_b[0]/a*k/(2.*l+1.0)*(l*W_minus-(l+1)*W_plus);
+                dy[idx+l] = 0.0;
+              }
+            }
+
+
             /** jump to next order p (or next species) */
             idx += (pv->l_max_ncdm[n_ncdm]+1);
           }

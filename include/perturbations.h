@@ -760,11 +760,6 @@ extern "C" {
                               ErrorMsg error_message
                               );
 
-  int emergency_output_perturbations(
-                                     struct background * pba,
-                                     struct perturbs * ppt
-                                     );
-
   int perturb_ncdm_quantities(struct background * pba,
                               struct perturbs * ppt,
                               struct perturb_workspace * ppw,
