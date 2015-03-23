@@ -252,7 +252,7 @@ int perturb_init(
              ppt->error_message);
 
   /** - if we want to store perturbations, write titles and allocate storage */
-  class_call(perturb_prepare_output(pba,ppt),
+  class_call(perturb_prepare_output(pba,ppt,ppr),
              ppt->error_message,
              ppt->error_message);
 
@@ -2462,7 +2462,8 @@ int perturb_solve(
 }
 
 int perturb_prepare_output(struct background * pba,
-			   struct perturbs * ppt){
+			   struct perturbs * ppt,
+                           struct precision *ppr){
 
   int n_ncdm;
   char tmp[40];
@@ -2502,6 +2503,7 @@ int perturb_prepare_output(struct background * pba,
       class_store_columntitle(ppt->scalar_titles,"delta_cdm",pba->has_cdm);
       class_store_columntitle(ppt->scalar_titles,"theta_cdm",pba->has_cdm);
       /* Non-cold dark matter */
+      int p;
       if (pba->has_ncdm == _TRUE_) {
         for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
           sprintf(tmp,"delta_ncdm[%d]",n_ncdm);
@@ -2512,6 +2514,10 @@ int perturb_prepare_output(struct background * pba,
           class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
           sprintf(tmp,"cs2_ncdm[%d]",n_ncdm);
           class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
+          for (p=0; p<=ppr->ncdmnra_p_max; p++){
+            sprintf(tmp,"W_{%d,0}_n%d",p,n_ncdm);
+            class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
+          }
         }
       }
       /* Decaying cold dark matter */
@@ -2993,7 +2999,7 @@ int perturb_vector_init(
   int index_pt, index_pt_new;
   int l;
   int n_ncdm,index_q,ncdm_l_size, any_ncdm_approx, p;
-  double rho_plus_p_ncdm,q,q2,epsilon,a,factor,q_over_m, pow_q_over_m, w_times_q2;
+  double rho_plus_p_ncdm,q,q2,epsilon,a,factor,q_over_m, pow_q_over_m, w_times_q2, *q_moments;
 
   /** - allocate a new perturb_vector structure to which ppw->pv will point at the end of the routine */
 
@@ -3845,6 +3851,7 @@ int perturb_vector_init(
             }
             else if ((pa_old[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_off) && (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on)){
               /** We are in the non-relativistic approximation */
+              q_moments = ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+3);
               if (ppt->perturbations_verbose>2)
                 fprintf(stdout,"Mode k=%e: switch on ncdm non-relativistic approximation at tau=%e for ncdm species %d\n",k,tau,n_ncdm);
               for(l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++){
@@ -3863,7 +3870,7 @@ int perturb_vector_init(
                 for (p=0; p <= ppw->ncdmnra_p_max; p++){
 
                   for(l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++)
-                    ppv->y[index_pt_new+p*(ppv->l_max_ncdm[n_ncdm]+1)+l] += w_times_q2*pow_q_over_m*ppw->pv->y[index_pt+l];
+                    ppv->y[index_pt_new+p*(ppv->l_max_ncdm[n_ncdm]+1)+l] += w_times_q2*pow_q_over_m*ppw->pv->y[index_pt+l]/q_moments[p+1];
 
                   pow_q_over_m *= q_over_m;
 
@@ -3875,11 +3882,13 @@ int perturb_vector_init(
               index_pt_new += (ppw->ncdmnra_p_max+1)*(ppv->l_max_ncdm[n_ncdm]+1);
               int idx;
               idx = ppv->index_pt_psi0_ncdm1;
-              for (l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++){
+              /**
+for (l=0; l<=ppv->l_max_ncdm[n_ncdm]; l++){
                 for (p=0; p <= ppw->ncdmnra_p_max; p++){
-                  printf("l=%d, p=%d, W_{p,l}=%.16e\n",l,p,ppv->y[idx+p*(ppv->l_max_ncdm[n_ncdm]+1)+l]*pow(pba->M_ncdm[n_ncdm],p));
+                  printf("l=%d, p=%d, W_{p,l}=%.16e\n",l,p,ppv->y[idx+p*(ppv->l_max_ncdm[n_ncdm]+1)+l]);
                 }
               }
+              */
             }
             else{
               /** No approximation for this species */
@@ -6539,11 +6548,38 @@ int perturb_print_variables(double tau,
     class_store_double(dataptr, theta_cdm, pba->has_cdm, storeidx);
     /* Non-cold Dark Matter */
     if (pba->has_ncdm == _TRUE_) {
+      int p,idx=ppw->pv->index_pt_psi0_ncdm1;
       for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
         class_store_double(dataptr, delta_ncdm[n_ncdm], _TRUE_, storeidx);
         class_store_double(dataptr, theta_ncdm[n_ncdm], _TRUE_, storeidx);
         class_store_double(dataptr, shear_ncdm[n_ncdm], _TRUE_, storeidx);
         class_store_double(dataptr, delta_p_over_delta_rho_ncdm[n_ncdm],  _TRUE_, storeidx);
+
+        if (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on){
+          for (p=0; p<=ppw->ncdmnra_p_max; p++){
+
+            class_store_double(dataptr, y[idx],_TRUE_, storeidx);
+            idx+= (ppw->pv->l_max_ncdm[n_ncdm]+1);
+
+          }
+        }
+        else{
+          double *q_moments = ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+3);
+          double W0p;
+
+          for (p=0; p <= ppw->ncdmnra_p_max; p++){
+
+            W0p = 0.0;
+
+            for(index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q++){
+              // Integrate over distributions:
+              W0p +=  pba->w_ncdm[n_ncdm][index_q]* pba->q_ncdm[n_ncdm][index_q]* pba->q_ncdm[n_ncdm][index_q]*
+                pow( pba->q_ncdm[n_ncdm][index_q]/pba->M_ncdm[n_ncdm],p)*y[idx+index_q*(ppw->pv->l_max_ncdm[n_ncdm]+1)];
+            }
+            class_store_double(dataptr, W0p/q_moments[p+1],_TRUE_, storeidx);
+          }
+          idx += (ppw->pv->q_size_ncdm[n_ncdm])*(ppw->pv->l_max_ncdm[n_ncdm]+1);
+        }
       }
     }
     /* Decaying cold dark matter */
@@ -6705,8 +6741,11 @@ int perturb_ncdm_quantities(struct background * pba,
                             double * rho_plus_p_shear,
                             double * delta_p){
    int idx, index_q, n_ncdm, j;
-   double rho_ncdm, p_ncdm, rho_plus_p_ncdm, pseudo_p_ncdm, w_ncdm, cg2_ncdm, factor;
+   double rho_ncdm, p_ncdm, rho_plus_p_ncdm, pseudo_p_ncdm, w_ncdm, cg2_ncdm, factor, *q_moments;
    double a, a2, q, q2, epsilon;
+
+   //int p_max_backup = ppw->ncdmnra_p_max;
+   //ppw->ncdmnra_p_max = 2;
 
    a = ppw->pvecback[pba->index_bg_a];
    a2 = a*a;
@@ -6729,26 +6768,27 @@ int perturb_ncdm_quantities(struct background * pba,
      }
      else if (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on){
        /** We are in the non-relativistic approximation */
+       q_moments = ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+3);
        factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,3)*pba->M_ncdm[n_ncdm];
 
        rho_delta[n_ncdm] = 0.0;
        for (j=0; j<=(ppw->ncdmnra_p_max/2); j++)
-         rho_delta[n_ncdm] += ppw->binomial_a[j]*pow(pba->a_today/a,2*j)*y[idx+(2*j)*(ppw->pv->l_max_ncdm[n_ncdm]+1)];
+         rho_delta[n_ncdm] += ppw->binomial_a[j]*pow(pba->a_today/a,2*j)*y[idx+(2*j)*(ppw->pv->l_max_ncdm[n_ncdm]+1)]*q_moments[2*j+1];
        rho_delta[n_ncdm] *=factor;
 
        delta_p[n_ncdm] = 0.0;
        for (j=1; j<=(ppw->ncdmnra_p_max/2); j++)
-         delta_p[n_ncdm] += ppw->binomial_b[j-1]*pow(pba->a_today/a,2*j)*y[idx+(2*j)*(ppw->pv->l_max_ncdm[n_ncdm]+1)];
+         delta_p[n_ncdm] += ppw->binomial_b[j-1]*pow(pba->a_today/a,2*j)*y[idx+(2*j)*(ppw->pv->l_max_ncdm[n_ncdm]+1)]*q_moments[2*j+1];
        delta_p[n_ncdm] *= factor/3.;
 
        if (ppw->ncdmnra_p_max >= 1)
-         rho_plus_p_theta[n_ncdm] = k*factor*(pba->a_today/a)*y[idx+1+(ppw->pv->l_max_ncdm[n_ncdm]+1)];
+         rho_plus_p_theta[n_ncdm] = k*factor*(pba->a_today/a)*y[idx+1+(ppw->pv->l_max_ncdm[n_ncdm]+1)]*q_moments[2];
        else
          rho_plus_p_theta[n_ncdm] = 0.0;
 
        rho_plus_p_shear[n_ncdm] = 0.0;
        for (j=1; j<=(ppw->ncdmnra_p_max/2); j++)
-         rho_plus_p_shear[n_ncdm] += ppw->binomial_b[j-1]*pow(pba->a_today/a,2*j)*y[idx+2+(2*j)*(ppw->pv->l_max_ncdm[n_ncdm]+1)];
+         rho_plus_p_shear[n_ncdm] += ppw->binomial_b[j-1]*pow(pba->a_today/a,2*j)*y[idx+2+(2*j)*(ppw->pv->l_max_ncdm[n_ncdm]+1)]*q_moments[2*j+1];
        rho_plus_p_shear[n_ncdm] *=  2.0/3.0*factor;
 
        idx += (ppw->pv->l_max_ncdm[n_ncdm]+1)*(ppw->ncdmnra_p_max+1);
@@ -6786,6 +6826,7 @@ int perturb_ncdm_quantities(struct background * pba,
 
    //n_ncdm = 0;
    //printf("%.16e %.16e %.16e %.16e\n",rho_delta[n_ncdm],rho_plus_p_theta[n_ncdm],rho_plus_p_shear[n_ncdm],delta_p[n_ncdm] );
+   //ppw->ncdmnra_p_max = p_max_backup;
 
    return _SUCCESS_;
  }
@@ -7511,40 +7552,41 @@ int perturb_derivs(double tau,
                 else
                   W_plus = y[idx+(2*j+1)*(pv->l_max_ncdm[n_ncdm]+1)+(l+1)];
 
-                dy[idx+l] += ppw->binomial_b[j]/pow(a,2*j+1)*k/(2.*l+1.0)*(l*W_minus-(l+1)*W_plus);
+                dy[idx+l] += q_moments[2*j+index_p+2]/q_moments[index_p+1]*ppw->binomial_b[j]/pow(a,2*j+1)*k/(2.*l+1.0)*(l*W_minus-(l+1)*W_plus);
+                //printf("p=%d, l=%d, j=%d: y[] = %.4e, dy*tau += %.4e\n",index_p,l,j,y[idx+l],
+                //       tau*q_moments[2*j+index_p+2]/q_moments[index_p+1]*ppw->binomial_b[j]/pow(a,2*j+1)*k/(2.*l+1.0)*(l*W_minus-(l+1)*W_plus));
+
               }
 
             }
             /** Set source terms at order p */
 
-            dy[idx] += -metric_continuity/3.0*(index_p+3.0)*q_moments[index_p+1];
+            dy[idx] += -metric_continuity/3.0*(index_p+3.0);
 
-            dy[idx+2] += 2./15.*metric_shear*(index_p+3.0)*q_moments[index_p+1];
+            dy[idx+2] += 2./15.*metric_shear*(index_p+3.0);
 
-            for (j=0; j<=floor((ppw->ncdmnra_p_max-index_p-1.)/2.); j++){
+            for (j=0; j<=floor((ppw->ncdmnra_p_max-index_p+1.)/2.); j++){
               if (j==0)
                 bin_b = 0;
               else
                 bin_b = ppw->binomial_b[j-1];
-              dy[idx+1] += metric_euler/(3.*k)/pow(a,2*index_p-1)*
-                (bin_b+(2+index_p)*ppw->binomial_a[j])*q_moments[index_p+2*j];
+              dy[idx+1] += metric_euler/(3.*k)/pow(a,2*j-1)*
+                (bin_b+(2+index_p)*ppw->binomial_a[j])*q_moments[index_p+2*j]/q_moments[index_p+1];
             }
-
 
             if (index_p == ppw->ncdmnra_p_max){
               for(l=0; l<=pv->l_max_ncdm[n_ncdm]; l++){
                 if (l==0)
                   W_minus = 0.0;
                 else
-                  W_minus = y[idx+(l-1)]*q_moments[ppw->ncdmnra_p_max+2]/q_moments[ppw->ncdmnra_p_max+1];
+                  W_minus = y[idx+(l-1)];
 
                 if (l==pv->l_max_ncdm[n_ncdm])
                   W_plus = 0.0;
                 else
-                  W_plus = y[idx+(l+1)]*q_moments[ppw->ncdmnra_p_max+2]/q_moments[ppw->ncdmnra_p_max+1];
+                  W_plus = y[idx+(l+1)];
 
-                //                dy[idx+l] += ppw->binomial_b[0]/a*k/(2.*l+1.0)*(l*W_minus-(l+1)*W_plus);
-                dy[idx+l] = 0.0;
+                dy[idx+l] += q_moments[index_p+2]/q_moments[index_p+1]*ppw->binomial_b[0]/a*k/(2.*l+1.0)*(l*W_minus-(l+1)*W_plus);
               }
             }
 

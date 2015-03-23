@@ -803,7 +803,8 @@ extern "C" {
                                   int index_md);
 
   int perturb_prepare_output(struct background * pba,
-                             struct perturbs * ppt);
+                             struct perturbs * ppt,
+                             struct precision * ppr);
 
 #ifdef __cplusplus
 }
