@@ -436,6 +436,14 @@ extern "C" {
                                   double *I
                                   );
 
+  int background_ncdm_psd_Qmoments(
+                                   struct background *pba,
+                                   double a,
+                                   int n_ncdm,
+                                   int N,
+                                   double *Qpn
+                                   );
+
   int background_ncdm_M_from_Omega(
 				    struct precision *ppr,
 				    struct background *pba,

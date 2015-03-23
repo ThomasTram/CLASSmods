@@ -532,7 +532,7 @@ struct precision
   double entropy_ini; /**< initial condition for entropy perturbation for isocurvature */
   double gw_ini;      /**< initial condition for tensor metric perturbation h */
 
-  int ncdmnra_p_max; /**< Maximum order of 1/M kept in expansions */
+  int ncdmnra_expansion_order; /**< Maximum order of 1/epsilon (epsilon is energy) kept in expansions */
   double ncdmnra_m_trigger; /**< Use nonrelativistic approximation for ncdm species with mass in eV above this value */
   double ncdmnra_w_trigger; /**< Switch to integrated hierarchies when w falls below this value */
 

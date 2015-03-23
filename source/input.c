@@ -2526,7 +2526,7 @@ int input_read_parameters(
 
   class_read_double("ncdm_nr_mass_trigger",ppr->ncdmnra_m_trigger);
   class_read_double("ncdm_nr_w_trigger",ppr->ncdmnra_w_trigger);
-  class_read_double("ncdm_nr_order",ppr->ncdmnra_p_max);
+  class_read_double("ncdm_nr_order",ppr->ncdmnra_expansion_order);
 
   class_test(ppr->ur_fluid_trigger_tau_over_tau_k==ppr->radiation_streaming_trigger_tau_over_tau_k,
              errmsg,
@@ -3165,7 +3165,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->ncdm_fluid_approximation = ncdmfa_CLASS;
   ppr->ncdm_fluid_trigger_tau_over_tau_k = 31.;
 
-  ppr->ncdmnra_p_max = 2;
+  ppr->ncdmnra_expansion_order = 2;
   ppr->ncdmnra_m_trigger = 1e2;
   ppr->ncdmnra_w_trigger = 0.01;
 

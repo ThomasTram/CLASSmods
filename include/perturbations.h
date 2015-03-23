@@ -539,10 +539,12 @@ struct perturb_workspace
   int max_l_max;    /**< maximum l_max for any multipole */
   double * s_l;     /**< array of freestreaming coefficients s_l = sqrt(1-K*(l^2-1)/k^2) */
 
-  int ncdmnra_p_max; /**< maximum order of p in expansion W_{p,\ell} */
-  double * binomial_a; /**< binomial coefficients Binomial[1/2,j] for 0<=j<=(ncdmnra_p_max+1)/2 */
-  double * binomial_b; /**< binomial coefficients Binomial[-1/2,j] for 0<=j<=(ncdmnra_p_max+1)/2 */
-  double * q_moments; /**< N_ncdm vectors, each containing the \int dq q^2 (q/M)^p f0 moments, -1<=p<=ncdmnra_p_max */
+  int ncdmnra_expansion_order; /**< maximum order of epsilon in expansion W_{n,p,\ell} */
+  int ncdmnra_lmax; /**< ncdmnra_lmax = ncdmnra_expansion_order+1. Defined for convenience and clarity. */
+  int * Npn; /** Array for indexing. W_{n,p,l} = y[l*Npn[l]+p*Np[p]+n]. */
+  int * Np;  /** Array for indexing. W_{n,p,l} = y[l*Npn[l]+p*Np[p]+n]. */
+  double * Q_moments; /**< Array for holding the time dependent Q_{n,p}-moments \int dq q^2 q^(2n)/epsilon^(2p-1) f0 moments.*/
+  int Q_length; /**< Length of Q_moments array, (ppw->ncdmnra_expansion_order+1)/2+3; */
   //@}
 
 };
