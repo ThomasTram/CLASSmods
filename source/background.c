@@ -1374,9 +1374,10 @@ int background_ncdm_psd_Qmoments(
     epsilon2pow = 1.0;
     for (p=0; p<N; p++){
       for (n=0; n<=p; n++){
-        Qpn[p*N+n] += wq2epsilon*pow(q2,n)/epsilon2pow;
+        //Qpn[p*N+n] += wq2epsilon*pow(q2,n)/epsilon2pow;
+        Qpn[p*N+n] += wq2epsilon*pow(q2,n)/pow(epsilon2,p);
       }
-      epsilon2pow *= epsilon2;
+      //epsilon2pow *= epsilon2;
     }
   }
 

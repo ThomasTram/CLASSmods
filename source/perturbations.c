@@ -7521,6 +7521,7 @@ int perturb_derivs(double tau,
               I can then set the index of W_plus and minus relative to idx_new using just ppw->Npn.
           */
           M2_ncdm = pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm];
+          double fudge;
           for (l=0; l<=ppw->ncdmnra_lmax; l++){
             for (p=0; p<=(ppw->ncdmnra_lmax-l)/2; p++){
               for (n=0; n<=p; n++){
@@ -7546,34 +7547,35 @@ int perturb_derivs(double tau,
                   damping_term = -(2*p+l-1)*a2*M2_ncdm*a_prime_over_a*y[idx+ppw->Npn[l]+ppw->Np[p+1]+n];
 
                 /** Perhaps set source terms: */
-                if (l==0){
-                  source_term = metric_continuity/3.*
-                    ((2*p-1)*ppw->Q_moments[(p+1)*ppw->Q_length+n+1]-
-                     (3+2*n)*ppw->Q_moments[p*ppw->Q_length+n]);
-                }
-                else if (l==1){
-                  source_term = -metric_euler/(3.*k)*
-                    ((2*p-1)*ppw->Q_moments[(p+1)*ppw->Q_length+n+1]-
-                     (3+2*n)*ppw->Q_moments[p*ppw->Q_length+n]);
-                  if (isnan(source_term))
-                    printf("Nan: a = %.4e, (n,p,l)=(%d,%d,%d), %.16e, %.16e\n",a,n,p,l,
-                           ppw->Q_moments[(p+1)*ppw->Q_length+n+1],ppw->Q_moments[p*ppw->Q_length+n]);
-                }
-                else if (l==2){
-                  source_term = -2./15.*metric_shear*
-                    ((2*p+1)*ppw->Q_moments[(p+2)*ppw->Q_length+n+2]-
-                     (5+2*n)*ppw->Q_moments[(p+1)*ppw->Q_length+n+1]);
-                }
-                else{
-                  source_term = 0.;
+                source_term = 0.;
+                if (p<=1){
+                  if (l==0){
+                    source_term = metric_continuity/3.*
+                      ((2*p-1)*ppw->Q_moments[(p+1)*ppw->Q_length+n+1]-
+                       (3+2*n)*ppw->Q_moments[p*ppw->Q_length+n]);
+                  }
+                  else if (l==1){
+                    source_term = -metric_euler/(3.*k)*
+                      ((2*p-1)*ppw->Q_moments[(p+1)*ppw->Q_length+n+1]-
+                       (3+2*n)*ppw->Q_moments[p*ppw->Q_length+n]);
+                  }
+                  else if (l==2){
+                    source_term = -2./15.*metric_shear*
+                      ((2*p+1)*ppw->Q_moments[(p+2)*ppw->Q_length+n+2]-
+                       (5+2*n)*ppw->Q_moments[(p+1)*ppw->Q_length+n+1]);
+                  }
+                  else{
+                    source_term = 0.;
+                  }
                 }
 
                 /** Finally set d/dtau (W_{n,p,l}) : */
-                //if (source_term != 0.)
-                //  printf("sourceterm = %.16e\n",source_term);
 
                 dy[idx+ppw->Npn[l]+ppw->Np[p]+n] = k/(2.*l+1.)*(l*W_minus-(l+1.)*W_plus)+damping_term+source_term;
-
+                /**if (dy[idx+ppw->Npn[l]+ppw->Np[p]+n]==0.)
+                  printf("(n,p,l)=(%d %d %d). order = %d =? %d. p =%d, pmax = %d  \n",
+                         n,p,l,(2*p+l-1),ppw->ncdmnra_expansion_order,
+                         p,(ppw->ncdmnra_lmax-l)/2);*/
               }
             }
           }
