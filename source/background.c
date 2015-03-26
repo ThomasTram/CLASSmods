@@ -1341,43 +1341,38 @@ int background_ncdm_psd_moments(
   return _SUCCESS_;
 }
 
-/** Compute Q_{n,p} moments Q_{n,p} = int_0^infty q^2 dq q^(2n)/epsilon^(2*p-1) f0(q) of the distribution function
+/** Compute Q_p moments Q_p = int_0^infty q^2 dq q^(2n)/epsilon^(2*p-1) f0(q) of the distribution function
     where 0<=p<N and 0<n<p */
 int background_ncdm_psd_Qmoments(
                                  struct background *pba,
                                  double a,
                                  int n_ncdm,
                                  int N,
-                                 double *Qpn
+                                 double *Qp
                                  ) {
 
   double * qvec = pba->q_ncdm_bg[n_ncdm];
   double * wvec = pba->w_ncdm_bg[n_ncdm];
-  int index_q, n, p;
-  double wq2epsilon, a2,q2, epsilon2pow, epsilon2, a2M2;
+  int index_q, p;
+  double wq2epsilon, a2,q2, q_over_epsilon_2pow, epsilon2, a2M2, q2_over_epsilon2;
   a2M2 = a*a*(pba->M_ncdm[n_ncdm])*(pba->M_ncdm[n_ncdm]);
 
   for (p=0; p<N; p++){
-    for (n=0; n<=p; n++){
-      Qpn[p*N+n] = 0.;
-    }
+    Qp[p] = 0.;
   }
-
 
   /** - loop over momenta */
   for (index_q=0; index_q<pba->q_size_ncdm_bg[n_ncdm]; index_q++) {
 
     q2 = qvec[index_q]*qvec[index_q];
     epsilon2 = q2+a2M2;
+    q2_over_epsilon2 = q2/epsilon2;
     wq2epsilon = wvec[index_q]*q2*sqrt(epsilon2);
 
-    epsilon2pow = 1.0;
+    q_over_epsilon_2pow = 1.0;
     for (p=0; p<N; p++){
-      for (n=0; n<=p; n++){
-        //Qpn[p*N+n] += wq2epsilon*pow(q2,n)/epsilon2pow;
-        Qpn[p*N+n] += wq2epsilon*pow(q2,n)/pow(epsilon2,p);
-      }
-      //epsilon2pow *= epsilon2;
+      Qp[p] += wq2epsilon*q_over_epsilon_2pow;
+      q_over_epsilon_2pow *= q2_over_epsilon2;
     }
   }
 

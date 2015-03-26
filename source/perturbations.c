@@ -1962,45 +1962,18 @@ int perturb_workspace_init(
       ppw->ncdmnra_expansion_order = ppr->ncdmnra_expansion_order;
       ppw->ncdmnra_lmax = ppw->ncdmnra_expansion_order+1;
       ppw->Q_length = (ppw->ncdmnra_expansion_order+1)/2+3;
-      class_alloc(ppw->Q_moments, ppw->Q_length*ppw->Q_length*sizeof(double), ppt->error_message);
-      class_alloc(ppw->Npn, (ppw->ncdmnra_lmax+1)*sizeof(double), ppt->error_message);
-      class_alloc(ppw->Np, (ppw->ncdmnra_lmax/2+1)*sizeof(double), ppt->error_message);
+      class_alloc(ppw->Q_moments, ppw->Q_length*sizeof(double), ppt->error_message);
+      class_alloc(ppw->Np, (ppw->ncdmnra_lmax+1)*sizeof(double), ppt->error_message);
 
-      int idx, p, n;
+      int idx, p;
 
       ppw->Np[0] = 0;
-      for (p=0; p<= (ppw->ncdmnra_lmax)/2; p++){
-        ppw->Np[p+1] = ppw->Np[p] + (p+1);
-      }
-
-      ppw->Npn[0] = 0;
       for (l=0; l<= ppw->ncdmnra_lmax; l++){
-        p = (ppw->ncdmnra_lmax-l)/2;
-        ppw->Npn[l+1] = ppw->Npn[l] + ppw->Np[p+1];
+        ppw->Np[l+1] = ppw->Np[l] + (ppw->ncdmnra_lmax-l)/2+1;
       }
 
-      printf("Expansion order %d, we have %d elements.\n",ppw->ncdmnra_expansion_order,ppw->Npn[ppw->ncdmnra_lmax+1]);
+      printf("Expansion order %d, we have %d elements.\n",ppw->ncdmnra_expansion_order,ppw->Np[ppw->ncdmnra_lmax+1]);
 
-      idx = 0;
-      for (l=0; l<= ppw->ncdmnra_lmax; l++){
-        for (p=0; p<= (ppw->ncdmnra_lmax-l)/2; p++){
-          for (n=0; n<=p; n++){
-            printf("(%d, %d, %d) index: %d ==? %d\n",n,p,l,idx,ppw->Npn[l]+ppw->Np[p]+n);
-            idx++;
-          }
-        }
-      }
-
-      /** This is how to use Np and Npn for indexing:
-          W_{n,p,l} = y_ncdm[ppw->Npn[l]+ppw->np[p]+n]. If we want to loop over all W,
-          for (l=0; l<= ppw->ncdmnra_lmax; l++){
-            for (p=0; p<= (ppw->ncdmnra_lmax-l)/2; p++){
-              for (n=0; n<=p; n++){
-                y[idx++] = W_{n,p,l}
-              }
-            }
-          }
-      */
     }
 
 
@@ -2044,7 +2017,6 @@ int perturb_workspace_free (
 
     if (pba->has_ncdm == _TRUE_){
       free(ppw->Q_moments);
-      free(ppw->Npn);
       free(ppw->Np);
     }
   }
@@ -3154,9 +3126,9 @@ int perturb_vector_init(
                      ppt->error_message,
                      "ppr->l_max_ncdm=%d should be at least %d, when using ncdmnra_nr_order = %d",
                      ppr->l_max_ncdm, ppw->ncdmnra_lmax,ppr->ncdmnra_expansion_order);
-          /** In the non-relativistic approximation we have a sparse 3 dimensional structure.
+          /** In the non-relativistic approximation we have a sparse 2 dimensional structure.
               However, we will flatten it to a 1 dimensional array and take q_size = 1. */
-          ppv->l_max_ncdm[n_ncdm] = ppw->Npn[ppw->ncdmnra_lmax+1]-1;
+          ppv->l_max_ncdm[n_ncdm] = ppw->Np[ppw->ncdmnra_lmax+1]-1;
           ppv->q_size_ncdm[n_ncdm] = 1;
         }
         else{
@@ -3888,10 +3860,7 @@ int perturb_vector_init(
                 idx = index_pt_new;
                 for (l=0; l<=ppw->ncdmnra_lmax; l++){
                   for (p=0; p<=(ppw->ncdmnra_lmax-l)/2; p++){
-                    for (n=0; n<=p; n++){
-                      ppv->y[idx] += w_times_q2*pow(q,2*n+l)/pow(epsilon,2*p+l-1)*ppw->pv->y[index_pt+l];
-                      idx++;
-                    }
+                    ppv->y[index_pt_new+ppw->Np[l]+p] += w_times_q2*epsilon*pow(q/epsilon,2*p+l)*ppw->pv->y[index_pt+l];
                   }
                 }
                 index_pt += (ppw->pv->l_max_ncdm[n_ncdm]+1);
@@ -6602,6 +6571,12 @@ int perturb_print_variables(double tau,
     class_store_double(dataptr, delta_scf, pba->has_scf, storeidx);
     class_store_double(dataptr, theta_scf, pba->has_scf, storeidx);
 
+    /**if (ppw->approx[ppw->index_ap_ncdmnra] == (int)ncdmnra_on)
+      fprintf(stderr,"%.16e %.16e %.16e %.16e %.16e\n",tau,
+              y[ppw->pv->index_pt_psi0_ncdm1+ppw->Np[0]+2],
+              y[ppw->pv->index_pt_psi0_ncdm1+ppw->Np[0]+3],
+              y[ppw->pv->index_pt_psi0_ncdm1+ppw->Np[0]+4],
+              y[ppw->pv->index_pt_psi0_ncdm1+ppw->Np[1]+7]);*/
     //fprintf(ppw->perturb_output_file,"\n");
     /**
     int kk;
@@ -6776,10 +6751,10 @@ int perturb_ncdm_quantities(struct background * pba,
        /** We are in the non-relativistic approximation */
        factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,4);
 
-       rho_delta[n_ncdm] = factor*y[idx+ppw->Npn[0]+ppw->Np[0]+0];
-       delta_p[n_ncdm] = factor/3.*y[idx+ppw->Npn[0]+ppw->Np[1]+1];
-       rho_plus_p_theta[n_ncdm] = k*factor*y[idx+ppw->Npn[1]+ppw->Np[0]+0];
-       rho_plus_p_shear[n_ncdm] = 2./3.*factor*y[idx+ppw->Npn[2]+ppw->Np[0]+0];
+       rho_delta[n_ncdm] = factor*y[idx+ppw->Np[0]+0];
+       delta_p[n_ncdm] = factor/3.*y[idx+ppw->Np[0]+1];
+       rho_plus_p_theta[n_ncdm] = k*factor*y[idx+ppw->Np[1]+0];
+       rho_plus_p_shear[n_ncdm] = 2./3.*factor*y[idx+ppw->Np[2]+0];
 
        idx += (ppw->pv->l_max_ncdm[n_ncdm]+1);
 
@@ -7524,61 +7499,62 @@ int perturb_derivs(double tau,
           double fudge;
           for (l=0; l<=ppw->ncdmnra_lmax; l++){
             for (p=0; p<=(ppw->ncdmnra_lmax-l)/2; p++){
-              for (n=0; n<=p; n++){
-                if ((2*p+l-1)==ppw->ncdmnra_expansion_order){
-                  W_minus = 0.;
-                  W_plus = 0.;
-                }
-                else{
-                  if (l==0)
-                    W_minus = 0.;
-                  else
-                    W_minus = y[idx+ppw->Npn[l-1]+ppw->Np[p+1]+n+1];
-                  if (l==ppw->ncdmnra_lmax)
-                    W_plus = 0.;
-                  else
-                    W_plus = y[idx+ppw->Npn[l+1]+ppw->Np[p]+n];
-                }
-
-                /** Set term due to time-dependent definition of W: */
-                if (p==((ppw->ncdmnra_lmax-l)/2))
-                  damping_term = 0.;
-                else
-                  damping_term = -(2*p+l-1)*a2*M2_ncdm*a_prime_over_a*y[idx+ppw->Npn[l]+ppw->Np[p+1]+n];
-
-                /** Perhaps set source terms: */
-                source_term = 0.;
-                if (p<=1){
-                  if (l==0){
-                    source_term = metric_continuity/3.*
-                      ((2*p-1)*ppw->Q_moments[(p+1)*ppw->Q_length+n+1]-
-                       (3+2*n)*ppw->Q_moments[p*ppw->Q_length+n]);
-                  }
-                  else if (l==1){
-                    source_term = -metric_euler/(3.*k)*
-                      ((2*p-1)*ppw->Q_moments[(p+1)*ppw->Q_length+n+1]-
-                       (3+2*n)*ppw->Q_moments[p*ppw->Q_length+n]);
-                  }
-                  else if (l==2){
-                    source_term = -2./15.*metric_shear*
-                      ((2*p+1)*ppw->Q_moments[(p+2)*ppw->Q_length+n+2]-
-                       (5+2*n)*ppw->Q_moments[(p+1)*ppw->Q_length+n+1]);
-                  }
-                  else{
-                    source_term = 0.;
-                  }
-                }
-
-                /** Finally set d/dtau (W_{n,p,l}) : */
-
-                dy[idx+ppw->Npn[l]+ppw->Np[p]+n] = k/(2.*l+1.)*(l*W_minus-(l+1.)*W_plus)+damping_term+source_term;
-                /**if (dy[idx+ppw->Npn[l]+ppw->Np[p]+n]==0.)
-                  printf("(n,p,l)=(%d %d %d). order = %d =? %d. p =%d, pmax = %d  \n",
-                         n,p,l,(2*p+l-1),ppw->ncdmnra_expansion_order,
-                         p,(ppw->ncdmnra_lmax-l)/2);*/
+              if ((2*p+l-1)==ppw->ncdmnra_expansion_order){
+                W_minus = 0.;
+                W_plus = 0.0;//(2.*l+1.)/(k*tau)*y[idx+ppw->Np[l]+p];
               }
+              else{
+                if (l==0)
+                  W_minus = 0.;
+                else
+                  W_minus = y[idx+ppw->Np[l-1]+p+1];
+                if (l==ppw->ncdmnra_lmax)
+                  W_plus = 0.0;//(2.*l+1.)/(k*tau)*y[idx+ppw->Np[l]+p]-y[idx+ppw->Np[l-1]+(p+1)];
+                else
+                  W_plus = y[idx+ppw->Np[l+1]+p];
+              }
+
+              /** Set term due to time-dependent definition of W: */
+              if (p==((ppw->ncdmnra_lmax-l)/2))
+                damping_term =  y[idx+ppw->Np[l]+p];
+              else
+                damping_term = y[idx+ppw->Np[l]+p]-y[idx+ppw->Np[l]+p+1];
+              damping_term *= (-(2*p+l-1)*a_prime_over_a);
+
+              /** Perhaps set source terms: */
+              if (l==0){
+                source_term = metric_continuity/3.*
+                  ((2*p-1)*ppw->Q_moments[p+1]-(2*p+3)*ppw->Q_moments[p]);
+              }
+              else if (l==1){
+                source_term = -metric_euler/(3.*k)*
+                  ((2*p-1)*ppw->Q_moments[p+1]-(2*p+3)*ppw->Q_moments[p]);
+              }
+              else if (l==2){
+                source_term = -2./15.*metric_shear*
+                  ((2*p+1)*ppw->Q_moments[p+2]-(2*p+5)*ppw->Q_moments[p+1]);
+              }
+              else{
+                source_term = 0.;
+              }
+
+              /** Finally set d/dtau (W_{n,p,l}) : */
+                dy[idx+ppw->Np[l]+p] = k/(2.*l+1.)*(l*W_minus-(l+1.)*W_plus)+damping_term+source_term;
+              /**printf("W_{%d,%d} = %.4e. Wdot/W = %.4e = %.4e + %4e + %4e. metric_euler = %.16e\n",
+                     p,l,
+                     y[idx+ppw->Np[l]+p],
+                     dy[idx+ppw->Np[l]+p]/y[idx+ppw->Np[l]+p],
+                     k/(2.*l+1.)*(l*W_minus-(l+1.)*W_plus),
+                     damping_term,
+                     source_term,
+                     metric_euler);*/
+              /**if (dy[idx+ppw->Npn[l]+ppw->Np[p]+n]==0.)
+                 printf("(n,p,l)=(%d %d %d). order = %d =? %d. p =%d, pmax = %d  \n",
+                 n,p,l,(2*p+l-1),ppw->ncdmnra_expansion_order,
+                 p,(ppw->ncdmnra_lmax-l)/2);*/
             }
           }
+
           idx += pv->l_max_ncdm[n_ncdm]+1;
         }
 
