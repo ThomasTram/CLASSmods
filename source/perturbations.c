@@ -658,6 +658,8 @@ int perturb_indices_of_perturbs(
           ppt->has_source_delta_dr = _TRUE_;
         if (pba->has_ncdm == _TRUE_)
           ppt->has_source_delta_ncdm = _TRUE_;
+        ppt->has_source_phi = _TRUE_;
+        ppt->has_source_xi = _TRUE_;
       }
 
       if (ppt->has_velocity_transfers == _TRUE_) {
@@ -726,6 +728,8 @@ int perturb_indices_of_perturbs(
       class_define_index(ppt->index_tp_phi_prime,  ppt->has_source_phi_prime, index_type,1);
       class_define_index(ppt->index_tp_phi_plus_psi,ppt->has_source_phi_plus_psi,index_type,1);
       class_define_index(ppt->index_tp_psi,        ppt->has_source_psi,       index_type,1);
+      class_define_index(ppt->index_tp_xi,         ppt->has_source_xi,        index_type,1);
+      class_define_index(ppt->index_tp_xi_prime,   ppt->has_source_xi,        index_type,1);
       class_define_index(ppt->index_tp_disp_matter,ppt->has_source_disp_matter, index_type,1);
       class_define_index(ppt->index_tp_disp_boost, ppt->has_source_disp_boost,index_type,1);
       class_define_index(ppt->index_tp_disp_b,     ppt->has_source_disp_b,    index_type,1);
@@ -5938,10 +5942,49 @@ int perturb_sources(
       _set_source_(ppt->index_tp_delta_m) = ppw->delta_m;
     }
 
+    if (ppt->has_source_xi == _TRUE_){
+      double H, a, R, xi, delta_b_tom, delta_cdm_tom, theta_tot, rho_tot;
+      double a_prime_over_a, rho_plus_p_tot, vdot_over_k, eta_prime_prime;
+      double H_prime = pvecback[pba->index_bg_H_prime];
+      double H_prime_prime = pvecback[pba->index_bg_H_prime_prime];
+      a = pvecback[pba->index_bg_a];
+      H = pvecback[pba->index_bg_H];
+      a_prime_over_a = a*H;
+      rho_tot = H*H;
+      rho_plus_p_tot = 2./3.*(pba->K/a/a-pvecback[pba->index_bg_H_prime]/a);
+      theta_tot = ppw->rho_plus_p_theta/rho_plus_p_tot;
+
+      if (ppt->gauge == synchronous){
+
+        /**eta_prime_prime = -1.0/6.0*pvecmetric[ppw->index_mt_h_prime_prime]-
+          1./3.*a*H*(pvecmetric[ppw->index_mt_h_prime]+6.0*pvecmetric[ppw->index_mt_eta_prime])+
+          1./3.*k*k*y[ppw->pv->index_pt_eta]-
+          3./2.*a*a*ppw->rho_plus_p_shear;
+        */
+
+        eta_prime_prime = -2*a*H*pvecmetric[ppw->index_mt_eta_prime]+3./2.*a*a*(ppw->delta_p-ppw->rho_plus_p_shear);
+
+
+        xi = -2./3./(rho_plus_p_tot*a*a)*(eta_prime_prime-H_prime_prime/H_prime*pvecmetric[ppw->index_mt_eta_prime]);
+        // <==>
+        //xi = 1./(rho_plus_p_tot)*(ppw->rho_plus_p_shear-ppw->delta_p+ppw->rho_plus_p_theta/k/k*(2*a*H+H_prime_prime/H_prime));
+        //Both OK.
+      }
+      else{
+        xi = 1./(rho_plus_p_tot)*(ppw->rho_plus_p_shear-ppw->delta_p+ppw->rho_plus_p_theta/k/k*(2*a*H+H_prime_prime/H_prime));
+      }
+
+      double xi_prime =  (xi-ppw->xi_last)/(tau-ppw->tau_last);
+      _set_source_(ppt->index_tp_xi_prime) = -0.*3./k/k*((2*a*a*H*H+a*H_prime)*xi+a*H*xi_prime)-4.5*a*a*ppw->rho_plus_p_shear;
+      ppw->xi_last = xi;
+      ppw->tau_last = tau;
+      _set_source_(ppt->index_tp_xi) = xi;
+    }
+
     /* "comoving curvature perturbation" R */
     if (ppt->has_pk_displacement == _TRUE_){
 
-      double H, a, R, delta_b_tom, delta_cdm_tom, theta_tot;
+      double H, a, R, xi, delta_b_tom, delta_cdm_tom, theta_tot;
       double a_prime_over_a, rho_plus_p_tot;
       a = pvecback[pba->index_bg_a];
       H = pvecback[pba->index_bg_H];
@@ -5950,27 +5993,27 @@ int perturb_sources(
       theta_tot = ppw->rho_plus_p_theta/rho_plus_p_tot;
 
       /** Valid in BOTH synchronous and longitudinal gauge */
-      delta_b_tom = y[ppw->pv->index_pt_delta_b] - 3.*a*H*y[ppw->pv->index_pt_theta_b]/k/k;
+      delta_b_tom = y[ppw->pv->index_pt_delta_b] + 3.*a*H*theta_tot/k/k;
       if (ppt->gauge == newtonian){
         if (ppt->has_source_disp_cdm == _TRUE_)
-          delta_cdm_tom = y[ppw->pv->index_pt_delta_cdm] - 3.*a*H*y[ppw->pv->index_pt_theta_cdm]/k/k;
+          delta_cdm_tom = y[ppw->pv->index_pt_delta_cdm] + 3.*a*H*theta_tot/k/k;
         R = -y[ppw->pv->index_pt_phi]-a_prime_over_a*theta_tot/k/k;
       }
       if (ppt->gauge == synchronous){
         if (ppt->has_source_disp_cdm == _TRUE_)
-          delta_cdm_tom = y[ppw->pv->index_pt_delta_cdm];
-        R = y[ppw->pv->index_pt_eta] - a_prime_over_a * theta_tot/k/k;
+          delta_cdm_tom = y[ppw->pv->index_pt_delta_cdm] + 3.*a*H*theta_tot/k/k;
+        R = -y[ppw->pv->index_pt_eta] - a_prime_over_a * theta_tot/k/k;
       }
 
 
       if (ppt->has_source_disp_boost == _TRUE_)
         _set_source_(ppt->index_tp_disp_boost) = 3.*R;
       if (ppt->has_source_disp_matter == _TRUE_)
-        _set_source_(ppt->index_tp_disp_matter) = ppw->delta_m - 3.*R;
+        _set_source_(ppt->index_tp_disp_matter) = ppw->delta_m + 3.*R;
       if (ppt->has_source_disp_b == _TRUE_)
-        _set_source_(ppt->index_tp_disp_b) = delta_b_tom - 3.*R;
+        _set_source_(ppt->index_tp_disp_b) = delta_b_tom;
       if (ppt->has_source_disp_cdm == _TRUE_)
-        _set_source_(ppt->index_tp_disp_cdm) = delta_cdm_tom - 3.*R;
+        _set_source_(ppt->index_tp_disp_cdm) = delta_cdm_tom;
 
 
     }
@@ -6428,7 +6471,15 @@ int perturb_print_variables(double tau,
         - a_prime_over_a_prime * pvecmetric[ppw->index_mt_alpha]
         - a_prime_over_a * pvecmetric[ppw->index_mt_alpha_prime];
     }
-    R = phi+2./3.*(phiprime/(a*H)+phi)*3./2.*(H*H+pba->K/a/a)/(pba->K/a/a-pvecback[pba->index_bg_H_prime]/a);
+    double rho_plus_p_tot = 2./3.*(pba->K/a/a-pvecback[pba->index_bg_H_prime]/a);
+    double theta_tot = ppw->rho_plus_p_theta/rho_plus_p_tot;
+    if (ppt->gauge == newtonian)
+      R = -y[ppw->pv->index_pt_phi]-a_prime_over_a*theta_tot/k/k;
+    if (ppt->gauge == synchronous)
+      R = -y[ppw->pv->index_pt_eta] - a_prime_over_a * theta_tot/k/k;
+
+    //R = -phi-2./3.*(phiprime/(a*H)+psi)*3./2.*(H*H+pba->K/a/a)/(pba->K/a/a-pvecback[pba->index_bg_H_prime]/a);
+
     class_store_double(dataptr, R, _TRUE_, storeidx);
     class_store_double(dataptr, phi/R-3./5., _TRUE_, storeidx);
     /* perturbed recombination */

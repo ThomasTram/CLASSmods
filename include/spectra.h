@@ -210,6 +210,10 @@ struct spectra {
   int index_tr_theta_dr;       /**< index of decay radiation velocity transfer function */
   int index_tr_theta_ncdm1;    /**< index of first species of non-cold dark matter (massive neutrinos, ...) velocity transfer function */
   int index_tr_theta_tot;      /**< index of total matter velocity transfer function */
+
+  int index_tr_phi;
+  int index_tr_xi;
+  int index_tr_xi_prime;
   int tr_size;                 /**< total number of species in transfer functions */
 
   double * matter_transfer;   /**< Matter transfer functions.

@@ -271,6 +271,7 @@ int background_functions(
   /* scalar field quantitites */
   double phi, phi_prime;
 
+  double one_plus_w_sq_rho=0.;
   /** - initialize local variables */
   a = pvecback_B[pba->index_bi_a];
   rho_tot = 0.;
@@ -293,12 +294,14 @@ int background_functions(
   rho_tot += pvecback[pba->index_bg_rho_g];
   p_tot += (1./3.) * pvecback[pba->index_bg_rho_g];
   rho_r += pvecback[pba->index_bg_rho_g];
+  one_plus_w_sq_rho += 16./9.*pvecback[pba->index_bg_rho_g];
 
   /* baryons */
   pvecback[pba->index_bg_rho_b] = pba->Omega0_b * pow(pba->H0,2) / pow(a_rel,3);
   rho_tot += pvecback[pba->index_bg_rho_b];
   p_tot += 0;
   rho_m += pvecback[pba->index_bg_rho_b];
+  one_plus_w_sq_rho += pvecback[pba->index_bg_rho_b];
 
   /* cdm */
   if (pba->has_cdm == _TRUE_) {
@@ -306,6 +309,7 @@ int background_functions(
     rho_tot += pvecback[pba->index_bg_rho_cdm];
     p_tot += 0.;
     rho_m += pvecback[pba->index_bg_rho_cdm];
+    one_plus_w_sq_rho += pvecback[pba->index_bg_rho_cdm];
   }
 
   /* dcdm */
@@ -380,6 +384,10 @@ int background_functions(
       /* (rho_ncdm1 - 3 p_ncdm1) is the "non-relativistic" contribution
          to rho_ncdm1 */
       rho_m += rho_ncdm - 3.* p_ncdm;
+
+      //      one_plus_w_sq_rho += pow(1.0+p_ncdm/rho_ncdm,2)*rho_ncdm;
+      double w_ncdm = p_ncdm/rho_ncdm;
+      one_plus_w_sq_rho += (1.0+w_ncdm)*rho_ncdm*(1+w_ncdm/(3.0*(1.+w_ncdm))*(5.-pseudo_p_ncdm/p_ncdm));
     }
   }
 
@@ -405,6 +413,8 @@ int background_functions(
     rho_tot += pvecback[pba->index_bg_rho_ur];
     p_tot += (1./3.) * pvecback[pba->index_bg_rho_ur];
     rho_r += pvecback[pba->index_bg_rho_ur];
+    one_plus_w_sq_rho += 16./9.*pvecback[pba->index_bg_rho_ur];
+
   }
 
   /** - compute expansion rate H from Friedmann equation: this is the
@@ -415,6 +425,11 @@ int background_functions(
 
   /** - compute derivative of H with respect to conformal time */
   pvecback[pba->index_bg_H_prime] = - (3./2.) * (rho_tot + p_tot) * a + pba->K/a;
+
+  pvecback[pba->index_bg_rho_plus_p_prime] = -3.*a*pvecback[pba->index_bg_H]*one_plus_w_sq_rho;
+
+ /** - compute derivative of H with respect to conformal time */
+  pvecback[pba->index_bg_H_prime_prime] = a*pvecback[pba->index_bg_H]*(pvecback[pba->index_bg_H_prime] + 9./2.*a*one_plus_w_sq_rho);
 
   /** - compute relativistic density to total density ratio */
   pvecback[pba->index_bg_Omega_r] = rho_r / rho_tot;
@@ -729,6 +744,8 @@ int background_indices(
   /* - indices for H and its conformal-time-derivative */
   class_define_index(pba->index_bg_H,_TRUE_,index_bg,1);
   class_define_index(pba->index_bg_H_prime,_TRUE_,index_bg,1);
+  class_define_index(pba->index_bg_H_prime_prime,_TRUE_,index_bg,1);
+  class_define_index(pba->index_bg_rho_plus_p_prime,_TRUE_,index_bg,1);
 
   /* - end of indices in the short vector of background values */
   pba->bg_size_short = index_bg;
@@ -1876,6 +1893,8 @@ int background_output_titles(struct background * pba,
   class_store_columntitle(titles,"proper time [Gyr]",_TRUE_);
   class_store_columntitle(titles,"conf. time [Mpc]",_TRUE_);
   class_store_columntitle(titles,"H [1/Mpc]",_TRUE_);
+  class_store_columntitle(titles,"H_prime",_TRUE_);
+  class_store_columntitle(titles,"H_prime_prime",_TRUE_);
   class_store_columntitle(titles,"comov. dist.",_TRUE_);
   class_store_columntitle(titles,"ang.diam.dist.",_TRUE_);
   class_store_columntitle(titles,"lum. dist.",_TRUE_);
@@ -1927,6 +1946,8 @@ int background_output_data(
     class_store_double(dataptr,pvecback[pba->index_bg_time]/_Gyr_over_Mpc_,_TRUE_,storeidx);
     class_store_double(dataptr,pba->conformal_age-pvecback[pba->index_bg_conf_distance],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_H],_TRUE_,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_H_prime],_TRUE_,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_H_prime_prime],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_conf_distance],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_ang_distance],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_lum_distance],_TRUE_,storeidx);

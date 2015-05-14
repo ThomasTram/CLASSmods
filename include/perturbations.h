@@ -256,6 +256,7 @@ struct perturbs
   short has_source_phi_prime;    /**< do we need source for metric fluctuation phi'? */
   short has_source_phi_plus_psi; /**< do we need source for metric fluctuation (phi+psi)? */
   short has_source_psi;          /**< do we need source for metric fluctuation psi? */
+  short has_source_xi;          /**< do we need source for metric fluctuation phi? */
   short has_source_disp_matter;  /**< do we need source for matter displacement field? */
   short has_source_disp_boost;   /**< do we need source for 3R? (R = comoving curvature perturbation) */
   short has_source_disp_b;       /**< do we need source for baryon displacement field? */
@@ -297,6 +298,8 @@ struct perturbs
   int index_tp_phi_prime;    /**< index value for metric fluctuation phi' */
   int index_tp_phi_plus_psi; /**< index value for metric fluctuation phi+psi */
   int index_tp_psi;          /**< index value for metric fluctuation psi */
+  int index_tp_xi;
+  int index_tp_xi_prime;
   int index_tp_disp_matter;  /**< index value for matter displacement field  */
   int index_tp_disp_boost;   /**< index value for displacement boost */
   int index_tp_disp_b;       /**< index value for baryon displacement field  */
@@ -509,6 +512,9 @@ struct perturb_workspace
 
   FILE * perturb_output_file; /**< filepointer to output file*/
   int index_ikout; /**< index for output k value */
+
+  double xi_last;
+  double tau_last;
 
   //@}
 

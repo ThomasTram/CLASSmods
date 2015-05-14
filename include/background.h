@@ -149,6 +149,7 @@ struct background
   int index_bg_a;             /**< scale factor */
   int index_bg_H;             /**< Hubble parameter in Mpc^{-1} */
   int index_bg_H_prime;       /**< its derivative w.r.t. conformal time */
+  int index_bg_H_prime_prime;       /**< its derivative w.r.t. conformal time */
 
   /* end of vector in short format, now quantitites in normal format */
 
@@ -184,6 +185,7 @@ struct background
   int index_bg_lum_distance;  /**< luminosity distance in Mpc */
   int index_bg_time;          /**< proper (cosmological) time in Mpc */
   int index_bg_rs;            /**< comoving sound horizon in Mpc */
+  int index_bg_rho_plus_p_prime;
 
   int index_bg_D;             /**< density growth factor in dust universe, D = H \int [da/(aH)^3] (arbitrary normalization) */
   int index_bg_f;             /**< velocity growth factor in dust universe, [dlnD]/[dln a] */
