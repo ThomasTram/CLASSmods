@@ -391,6 +391,20 @@ struct precision
   double tol_ncdm_initial_w;
 
   /**
+   * parameter controlling relative precision of integrals over idm
+   * phase-space distribution during perturbation calculation
+   */
+  double tol_idm;
+  double tol_idm_newtonian;
+  double tol_idm_synchronous;
+
+  /**
+   * parameter controlling relative precision of integrals over idm
+   * phase-space distribution during background evolution
+   */
+  double tol_idm_bg;
+
+  /**
    * parameter controling the initial scalar field in background functions
    */
   double safe_phi_scf;
@@ -529,6 +543,7 @@ struct precision
   int l_max_dr;   /**< number of momenta in Boltzmann hierarchy for decay radiation, at least 4 */
   int l_max_ur;   /**< number of momenta in Boltzmann hierarchy for relativistic neutrino/relics (scalar), at least 4 */
   int l_max_ncdm;   /**< number of momenta in Boltzmann hierarchy for relativistic neutrino/relics (scalar), at least 4 */
+   int l_max_idm;   /**< number of momenta in Boltzmann hierarchy for relativistic interacting neutrino/relics (scalar), at least 4 */
   int l_max_g_ten;     /**< number of momenta in Boltzmann hierarchy for photon temperature (tensor), at least 4 */
   int l_max_pol_g_ten; /**< number of momenta in Boltzmann hierarchy for photon polarisation (tensor), at least 4 */
 

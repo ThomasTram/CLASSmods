@@ -26,6 +26,7 @@ l_max_g=50
 l_max_pol_g=25
 l_max_ur=50
 l_max_ncdm=50
+l_max_idm=50
 
 tol_perturb_integration=1.e-6
 perturb_sampling_stepsize=0.01
@@ -41,6 +42,7 @@ ncdm_fluid_approximation = 3
 ncdm_fluid_trigger_tau_over_tau_k = 51.
 
 tol_ncdm = 1.e-10
+tol_idm = 1.e-10
 
 l_logstep=1.026
 l_linstep=25

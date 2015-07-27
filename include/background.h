@@ -112,6 +112,35 @@ struct background
   char * ncdm_psd_files;                /**< list of filenames for tabulated p-s-d */
   /* end of parameters for tabulated ncdm p-s-d */
 
+
+  double N_idm;                          /**< Number of idm species */
+  double * Omega0_idm, Omega0_idm_tot;   /** Omega0_idm for one and for all idm species */
+                                         /** Isabel: Kept Omega0_idm to be of type * double, since later for massless case this is going to have an array structure */
+  double G_massive;                      /** G_massive is defined below eq. (6.6) in astro-ph/1409.1577 and includes the coupling strength as well as the scalar mass. The only difference is that the a^4 is not included. */
+
+  /* the following parameters help to define the analytical idm phase space distributions (p-s-d) */
+  double * T_idm,T_idm_default;       /**< list of 1st parameters in
+					     p-s-d of non-cold relics:
+					     relative temperature
+					     T_idm/T_gamma; and its
+					     default value */
+  double * T0_idm, T0_idm_default;                      /** current temperature of idm species */
+  double * deg_idm, deg_idm_default;   /**<vector of degeneracy parameters in factor
+                                             of p-s-d: 1 for one family of neutrinos
+                                             (= one neutrino plus its anti-neutrino,
+                                             total g*=1+1=2, so deg = 0.5 g*); and its
+					     default value */
+  double * idm_psd_parameters;         /**< list of parameters for specifying/modifying
+                                             idm p.s.d.'s, to be cutomized for given model
+                                             (could be e.g. mixing angles) */
+  /* end of parameters for analytical idm p-s-d */
+
+  /* the following parameters help to define tabulated idm p-s-d passed in file */
+  int * got_files_idm;                      /**< list of flags for each species, set to true if
+					     p-s-d is passed through file */
+  char * idm_psd_files;                /**< list of filenames for tabulated p-s-d */
+  /* end of parameters for tabulated idm p-s-d */
+
   /* rescaled initial value for dcdm density. */
   double Omega_ini_dcdm;
 
@@ -172,6 +201,8 @@ struct background
   int index_bg_rho_ncdm1;     /**< density of first ncdm species (others contiguous) */
   int index_bg_p_ncdm1;       /**< pressure of first ncdm species (others contiguous) */
   int index_bg_pseudo_p_ncdm1;/**< another statistical momentum useful in ncdma approximation */
+
+  int index_bg_rho_idm;     /**< density of first idm species (others contiguous) */
 
   int index_bg_Omega_r;       /**< relativistic density fraction (\f$ \Omega_{\gamma} + \Omega_{\nu r} \f$) */
 
@@ -259,6 +290,7 @@ struct background
   short has_dr;        /**< presence of relativistic decay radiation? */
   short has_scf;       /**< presence of a scalar field? */
   short has_ncdm;      /**< presence of non-cold dark matter? */
+  short has_idm;       /**< presence of relativistic interacting dark matter? */
   short has_lambda;    /**< presence of cosmological constant? */
   short has_fld;       /**< presence of fluid with constant w and cs2? */
   short has_ur;        /**< presence of ultra-relativistic neutrinos/relics? */
@@ -283,6 +315,25 @@ struct background
   double * factor_ncdm; /* List of normalization factors for calculating energy density etc.*/
 
   //@}
+
+/**
+   *@name - arrays related to sampling and integration of idm phase space distributions
+   */
+
+
+  //@{
+
+  double ** q_idm_bg;  /* Pointers to vectors of background sampling in q */
+  double ** w_idm_bg;  /* Pointers to vectors of corresponding quadrature weights w */
+  double ** q_idm;     /* Pointers to vectors of perturbation sampling in q */
+  double ** w_idm;     /* Pointers to vectors of corresponding quadrature weights w */
+  double ** dlnf0_dlnq_idm; /* Pointers to vectors of logarithmic derivatives of p-s-d */
+  int * q_size_idm_bg; /* Size of the q_ncdm_bg arrays */
+  int * q_size_idm;    /* Size of the q_idm arrays */
+  double * factor_idm; /* List of normalization factors for calculating energy density etc.*/
+
+  //@}
+
 
   /**
    *@name - some flags needed for calling background functions
@@ -337,6 +388,7 @@ struct background_parameters_for_distributions {
 
   /* Index of current distribution function */
   int n_ncdm;
+  int n_idm;
 
   /* Used for interpolating in file of tabulated p-s-d: */
   int tablesize;
@@ -432,6 +484,36 @@ extern "C" {
 				    struct background *pba,
 					int species
 				    );
+
+ int background_idm_distribution(
+				  void *pba,
+				  double q,
+				  double * f0
+				  );
+
+  int background_idm_test_function(
+				     void *pba,
+				     double q,
+				     double * test
+				     );
+
+  int background_idm_init(
+			    struct precision *ppr,
+			    struct background *pba
+			    );
+
+
+  int background_idm_momenta(
+                             double * qvec,
+                             double * wvec,
+                             int qsize,
+                             double factor,
+                             double z,
+                             double * n,
+		             double * rho,
+                             double * p,
+                             double * drho_dM 
+                             );
 
   int background_solve(
 		       struct precision *ppr,

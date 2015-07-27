@@ -123,6 +123,7 @@ struct perturbs
 
   short evolve_tensor_ur;             /**< will we evolve ur tensor perturbations (either becasue we have ur species, or we have ncdm species with massless approximation) ? */
   short evolve_tensor_ncdm;             /**< will we evolve ncdm tensor perturbations (if we have ncdm species and we use the exact method) ? */
+  short evolve_tensor_idm;             /**< will we evolve idm tensor perturbations (if we have idm species and we use the exact method) ? */
 
   short has_cl_cmb_temperature;       /**< do we need Cl's for CMB temperature? */
   short has_cl_cmb_polarization;      /**< do we need Cl's for CMB polarization? */
@@ -243,6 +244,7 @@ struct perturbs
   short has_source_delta_dr; /**< do we need source for delta of decay radiation? */
   short has_source_delta_ur; /**< do we need source for delta of ultra-relativistic neutrinos/relics? */
   short has_source_delta_ncdm; /**< do we need source for delta of all non-cold dark matter species (e.g. massive neutrinos)? */
+  short has_source_delta_idm; /**< do we need source for delta of all interacting dark matter species? */
   short has_source_theta_m;    /**< do we need source for theta of total matter? */
   short has_source_theta_g;    /**< do we need source for theta of gammas? */
   short has_source_theta_b;    /**< do we need source for theta of baryons? */
@@ -253,6 +255,7 @@ struct perturbs
   short has_source_theta_dr; /**< do we need source for theta of ultra-relativistic neutrinos/relics? */
   short has_source_theta_ur; /**< do we need source for theta of ultra-relativistic neutrinos/relics? */
   short has_source_theta_ncdm; /**< do we need source for theta of all non-cold dark matter species (e.g. massive neutrinos)? */
+  short has_source_theta_idm; /**< do we need source for theta of all interacting dark matter species (e.g. massive neutrinos)? */
   short has_source_phi;          /**< do we need source for metric fluctuation phi? */
   short has_source_phi_prime;    /**< do we need source for metric fluctuation phi'? */
   short has_source_phi_plus_psi; /**< do we need source for metric fluctuation (phi+psi)? */
@@ -276,6 +279,7 @@ struct perturbs
   int index_tp_delta_dr; /**< index value for delta of decay radiation */
   int index_tp_delta_ur; /**< index value for delta of ultra-relativistic neutrinos/relics */
   int index_tp_delta_ncdm1; /**< index value for delta of first non-cold dark matter species (e.g. massive neutrinos) */
+  int index_tp_delta_idm; /**< index value for delta of idm species */
   int index_tp_perturbed_recombination_delta_temp;		/* Gas temperature perturbation */
   int index_tp_perturbed_recombination_delta_chi;			/* Inionization fraction perturbation */
 
@@ -289,6 +293,7 @@ struct perturbs
   int index_tp_theta_ur; /**< index value for theta of ultra-relativistic neutrinos/relics */
   int index_tp_theta_dr; /**< index value for F1 of decay radiation */
   int index_tp_theta_ncdm1; /**< index value for theta of first non-cold dark matter species (e.g. massive neutrinos) */
+  int index_tp_theta_idm; /**< index value for theta of first idm species (e.g. massive neutrinos) */
 
   int index_tp_phi;          /**< index value for metric fluctuation phi */
   int index_tp_phi_prime;    /**< index value for metric fluctuation phi' */
@@ -415,6 +420,11 @@ struct perturb_vector
   int* l_max_ncdm;
   int* q_size_ncdm;
 
+  int index_pt_psi0_idm;
+  int N_idm;
+  int* l_max_idm;
+  int* q_size_idm;
+
   int index_pt_eta;       /**< synchronous gauge metric perturbation eta*/
   int index_pt_phi;
   int index_pt_hv_prime;  /**< vector metric perturbation h_v' in synchronous gauge */
@@ -496,6 +506,10 @@ struct perturb_workspace
   double * delta_ncdm;
   double * theta_ncdm;
   double * shear_ncdm;
+
+  double * delta_idm;
+  double * theta_idm;
+  double * shear_idm;
 
   double delta_m;
   double theta_m;
