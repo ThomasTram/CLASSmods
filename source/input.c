@@ -565,7 +565,7 @@ int input_read_parameters(
   int flag1,flag2,flag3;
   double param1,param2,param3;
   int N_ncdm=0,n,entries_read;
-  double N_idm=0.;
+  int N_inu=0;
   int int1,fileentries;
   double scf_lambda;
   double fnu_factor;
@@ -592,7 +592,7 @@ int input_read_parameters(
   double sigma_B; /**< Stefan-Boltzmann constant in W/m^2/K^4 = Kg/K^4/s^3 */
 
   double rho_ncdm;
-  double rho_idm;
+  double rho_inu;
   double R0,R1,R2,R3,R4;
   double PSR0,PSR1,PSR2,PSR3,PSR4;
   double HSR0,HSR1,HSR2,HSR3,HSR4;
@@ -974,71 +974,71 @@ int input_read_parameters(
   Omega_tot += pba->Omega0_ncdm_tot;
 
 
-  /* Omega_0_idm (ultra-relativistic interacting species) */
+  /* Omega_0_inu (ultra-relativistic interacting species) */
 
-  /* read N_idm */
-  class_read_int("N_idm",N_idm);
+  /* read N_inu */
+  class_read_int("N_inu",N_inu);
 
  /*Isabel: I don't understand the meaning of flag1 here, therefore I took it out? */
-   /*  if ((flag1 == _TRUE_) && (N_idm > 0.)){ */
+   /*  if ((flag1 == _TRUE_) && (N_inu > 0.)){ */
 
-   if ((N_idm > 0.)){
+   if ((N_inu > 0)){
 
-      pba->N_idm = N_idm;
-      /* printf(" -> N_idm = %e\n",pba->N_idm); */
+      pba->N_inu = N_inu;
+      /* printf(" -> N_inu = %e\n",pba->N_inu); */
 
-      /* read G_massive, deg_idm and T0_idm*/ 
+      /* read G_massive, deg_inu and T0_inu*/ 
       class_read_double("G_massive",pba->G_massive);
-      /* printf(" -> idm with G_massive = %e\n",pba->G_massive); */
+      /* printf(" -> inu with G_massive = %e\n",pba->G_massive); */
 
-      class_read_list_of_doubles_or_default("deg_idm",pba->deg_idm,pba->deg_idm_default,1);
-      class_read_list_of_doubles_or_default("T0_idm",pba->T0_idm,pba->T0_idm_default,1);
+     class_read_double("deg_inu",pba->deg_inu);
+     class_read_double("T0_inu",pba->T0_inu);
 
    /* Isabel: For the massless case we need to read in tables of background distribution function...: */
 
     /*
-    class_read_list_of_integers_or_default("use_idm_psd_files",pba->got_files_idm,_FALSE_,N_idm); 
+    class_read_list_of_integers_or_default("use_inu_psd_files",pba->got_files_inu,_FALSE_,N_inu); 
 
      if (flag1==_TRUE_){
-      for(n=0,fileentries=0; n<N_idm; n++){
-        if (pba->got_files_idm[n] == _TRUE_) fileentries++;
+      for(n=0,fileentries=0; n<N_inu; n++){
+        if (pba->got_files_inu[n] == _TRUE_) fileentries++;
       }
 
       if (fileentries > 0) {
 
-        class_call(parser_read_list_of_strings(pfc,"idm_psd_filenames",
-                                               &entries_read,&(pba->idm_psd_files),&flag2,errmsg),
+        class_call(parser_read_list_of_strings(pfc,"inu_psd_filenames",
+                                               &entries_read,&(pba->inu_psd_files),&flag2,errmsg),
                    errmsg,
                    errmsg);
         class_test(flag2 == _FALSE_,errmsg,
-                   "Input use_idm_files is found, but no filenames found!");
+                   "Input use_inu_files is found, but no filenames found!");
         class_test(entries_read != fileentries,errmsg,
-                   "Number of filenames found, %d, does not match number of _TRUE_ values in use_idm_files, %d",
+                   "Number of filenames found, %d, does not match number of _TRUE_ values in use_inu_files, %d",
                    entries_read,fileentries);
       }
     }
   
     parser_read_list_of_doubles(pfc,
-                                "idm_psd_parameters",
+                                "inu_psd_parameters",
                                 &entries_read,
-                                &(pba->idm_psd_parameters),
+                                &(pba->inu_psd_parameters),
                                 &flag2,
                                 errmsg);
 
-    class_call(background_idm_init(ppr,pba),
+    class_call(background_inu_init(ppr,pba),
                pba->error_message,
                errmsg); 
             */  
 
       /* contribution of one species: */
-      pba->Omega0_idm[0] = 7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
+      pba->Omega0_inu= 7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
 
       /* contribution of one species: */
-      pba->Omega0_idm_tot = pba->N_idm*7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
+      pba->Omega0_inu_tot = pba->N_inu*7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
 
   } 
 
- Omega_tot += pba->Omega0_idm_tot;
+ Omega_tot += pba->Omega0_inu_tot;
 
 
   /* Omega_0_k (effective fractional density of curvature) */
@@ -2564,8 +2564,8 @@ int input_read_parameters(
   class_read_int("l_max_ur",ppr->l_max_ur);
   if (pba->N_ncdm>0)
     class_read_int("l_max_ncdm",ppr->l_max_ncdm);
-  if (pba->N_idm>0.)
-    class_read_int("l_max_idm",ppr->l_max_idm);
+  if (pba->N_inu>0)
+    class_read_int("l_max_inu",ppr->l_max_inu);
   class_read_int("l_max_g_ten",ppr->l_max_g_ten);
   class_read_int("l_max_pol_g_ten",ppr->l_max_pol_g_ten);
   class_read_double("curvature_ini",ppr->curvature_ini);
@@ -2826,17 +2826,17 @@ int input_default_params(
   pba->ncdm_psd_parameters = NULL;
   pba->ncdm_psd_files = NULL;
 
-  pba->N_idm = 0.;
-  pba->Omega0_idm_tot = 0.; 
-  pba->T_idm_default = pow(4./11.,1./3.); 
-  pba->T_idm = NULL;
-  pba->T0_idm_default = pow(4./11.,4./3.)*2.7255; 
-  pba->T0_idm = NULL;
-  pba->G_massive = 0.;
-  pba->deg_idm_default = 1.;
-  pba->deg_idm = NULL;
-  pba->idm_psd_parameters = NULL;
-  pba->idm_psd_files = NULL;
+  pba->N_inu = 0;
+  pba->Omega0_inu_tot = 0.0; 
+  pba->T_inu_default = 0.71611; 
+  pba->T_inu = 0.0;
+  pba->T0_inu_default = 0.71611*2.7255; 
+  pba->T0_inu = 0.0;
+  pba->G_massive = 0.0;
+  pba->deg_inu_default = 1.;
+  pba->deg_inu = 0.0;
+  pba->inu_psd_parameters = 0.0;
+  pba->inu_psd_files = 0.0;
 
   pba->Omega0_scf = 0.; /* Scalar field defaults */
   pba->attractor_ic_scf = _TRUE_;
@@ -2850,7 +2850,7 @@ int input_default_params(
   pba->Omega0_k = 0.;
   pba->K = 0.;
   pba->sgnK = 0;
-  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr-pba->Omega0_idm_tot;
+  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr-pba->Omega0_inu_tot;
   pba->Omega0_fld = 0.;
   pba->a_today = 1.;
   pba->w0_fld=-1.;
@@ -2922,7 +2922,7 @@ int input_default_params(
   ppt->tensor_method = tm_massless_approximation;
   ppt->evolve_tensor_ur = _FALSE_;
   ppt->evolve_tensor_ncdm = _FALSE_;
-  ppt->evolve_tensor_idm = _FALSE_;
+  ppt->evolve_tensor_inu = _FALSE_;
 
   ppt->has_scalars=_TRUE_;
   ppt->has_vectors=_FALSE_;
@@ -3121,10 +3121,10 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->tol_ncdm_bg = 1.e-5;
   ppr->tol_ncdm_initial_w=1.e-3;
 
-  ppr->tol_idm = 1.e-3;
-  ppr->tol_idm_synchronous = 1.e-3;
-  ppr->tol_idm_newtonian = 1.e-5;
-  ppr->tol_idm_bg = 1.e-5;
+  ppr->tol_inu = 1.e-3;
+  ppr->tol_inu_synchronous = 1.e-3;
+  ppr->tol_inu_newtonian = 1.e-5;
+  ppr->tol_inu_bg = 1.e-5;
 
   /**
    * - parameters related to the thermodynamics
@@ -3216,7 +3216,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->l_max_dr=17;
   ppr->l_max_ur=17;
   ppr->l_max_ncdm=17;
-  ppr->l_max_idm=17;
+  ppr->l_max_inu=17;
   ppr->l_max_g_ten=5;
   ppr->l_max_pol_g_ten=5;
 

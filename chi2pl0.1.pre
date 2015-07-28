@@ -64,7 +64,7 @@ l_max_g=14
 l_max_pol_g=8
 l_max_ur=16
 l_max_ncdm=16
-l_max_idm=16
+l_max_inu=16
 
 tol_tau_approx=1.e-3
 tol_perturb_integration=1.e-4 #1.e-2 for evolver rk (0)
@@ -81,7 +81,7 @@ ncdm_fluid_approximation = 2
 ncdm_fluid_trigger_tau_over_tau_k = 30.
 
 tol_ncdm = 1.e-4
-tol_idm = 1.e-4
+tol_inu = 1.e-4
 
 l_logstep=1.15
 l_linstep=30

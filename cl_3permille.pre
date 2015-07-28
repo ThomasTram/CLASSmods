@@ -64,7 +64,7 @@ l_max_g=16
 l_max_pol_g=16
 l_max_ur=12
 l_max_ncdm=12
-l_max_idm=12
+l_max_inu=12
 
 tol_tau_approx=1.e-5
 tol_perturb_integration=1.e-3
@@ -81,7 +81,7 @@ ncdm_fluid_approximation = 2
 ncdm_fluid_trigger_tau_over_tau_k = 1000.
 
 tol_ncdm=1.e-3
-tol_idm=1.e-3
+tol_inu=1.e-3
 
 l_logstep=1.045
 l_linstep=55

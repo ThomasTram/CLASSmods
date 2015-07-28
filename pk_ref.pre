@@ -63,7 +63,7 @@ l_max_g=25
 l_max_pol_g=25
 l_max_ur=150
 l_max_ncdm1=28
-l_max_idm=28
+l_max_inu=28
 
 tol_tau_approx=1.e-5
 tol_perturb_integration=1.e-6
