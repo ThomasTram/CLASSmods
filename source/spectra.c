@@ -2831,7 +2831,6 @@ int spectra_matter_transfers(
   double delta_rho_tot,rho_tot;
   double rho_plus_p_theta_tot,rho_plus_p_tot;
   int n_ncdm;
-  int n_inu;
 
   /** - check the presence of scalar modes */
 
@@ -3282,7 +3281,6 @@ int spectra_output_tk_titles(struct background *pba,
                              char titles[_MAXTITLESTRINGLENGTH_]
                              ){
   int n_ncdm;
-  int n_inu;
   char tmp[40];
 
   if (output_format == class_format) {
@@ -3357,7 +3355,6 @@ int spectra_output_tk_data(
                           ) {
 
   int n_ncdm;
-  int n_inu;
   double k, k_over_h, k2;
   double * tkfull=NULL;  /* array with argument
                    pk_ic[(index_k * psp->ic_size[index_md] + index_ic)*psp->tr_size+index_tr] */

@@ -973,67 +973,29 @@ int input_read_parameters(
 
   Omega_tot += pba->Omega0_ncdm_tot;
 
-
   /* Omega_0_inu (ultra-relativistic interacting species) */
 
   /* read N_inu */
   class_read_int("N_inu",N_inu);
-
- /*Isabel: I don't understand the meaning of flag1 here, therefore I took it out? */
-   /*  if ((flag1 == _TRUE_) && (N_inu > 0.)){ */
-
-   if ((N_inu > 0)){
+   if (N_inu > 0){
 
       pba->N_inu = N_inu;
-      /* printf(" -> N_inu = %e\n",pba->N_inu); */
 
-      /* read G_massive, deg_inu and T0_inu*/ 
+/*Isabel: Still have to fix that default values are used if no vlaue is found in ini-file. Is there an equivalent of "class_read_list_of_doubles_or_default", but not for lists?   */
+    
+      /* read G_massive, deg_inu, T0_inu T_inu*/ 
       class_read_double("G_massive",pba->G_massive);
-      /* printf(" -> inu with G_massive = %e\n",pba->G_massive); */
+      class_read_double("deg_inu",pba->deg_inu);
+      class_read_double("T0_inu",pba->T0_inu);
+      class_read_double("T_inu",pba->T_inu);
 
-     class_read_double("deg_inu",pba->deg_inu);
-     class_read_double("T0_inu",pba->T0_inu);
-
-   /* Isabel: For the massless case we need to read in tables of background distribution function...: */
-
-    /*
-    class_read_list_of_integers_or_default("use_inu_psd_files",pba->got_files_inu,_FALSE_,N_inu); 
-
-     if (flag1==_TRUE_){
-      for(n=0,fileentries=0; n<N_inu; n++){
-        if (pba->got_files_inu[n] == _TRUE_) fileentries++;
-      }
-
-      if (fileentries > 0) {
-
-        class_call(parser_read_list_of_strings(pfc,"inu_psd_filenames",
-                                               &entries_read,&(pba->inu_psd_files),&flag2,errmsg),
-                   errmsg,
-                   errmsg);
-        class_test(flag2 == _FALSE_,errmsg,
-                   "Input use_inu_files is found, but no filenames found!");
-        class_test(entries_read != fileentries,errmsg,
-                   "Number of filenames found, %d, does not match number of _TRUE_ values in use_inu_files, %d",
-                   entries_read,fileentries);
-      }
-    }
-  
-    parser_read_list_of_doubles(pfc,
-                                "inu_psd_parameters",
-                                &entries_read,
-                                &(pba->inu_psd_parameters),
-                                &flag2,
-                                errmsg);
-
-    class_call(background_inu_init(ppr,pba),
-               pba->error_message,
-               errmsg); 
-            */  
-
+   /* Isabel: For the massless case we need to read in tables of background distribution function, see ncdm */
+    class_call(background_inu_init(ppr,pba),pba->error_message,errmsg); 
+              
       /* contribution of one species: */
       pba->Omega0_inu= 7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
 
-      /* contribution of one species: */
+      /* contribution of all species: */
       pba->Omega0_inu_tot = pba->N_inu*7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
 
   } 
@@ -2850,7 +2812,7 @@ int input_default_params(
   pba->Omega0_k = 0.;
   pba->K = 0.;
   pba->sgnK = 0;
-  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr-pba->Omega0_inu_tot;
+  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr -pba->Omega0_inu_tot;
   pba->Omega0_fld = 0.;
   pba->a_today = 1.;
   pba->w0_fld=-1.;

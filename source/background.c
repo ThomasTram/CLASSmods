@@ -268,8 +268,6 @@ int background_functions(
   int n_ncdm;
   /* background inu quantities */
   double rho_inu,p_inu;
-  /* number of inu species **/
-  int n_inu;
   /* scale factor */
   double a;
   /* scalar field quantitites */
@@ -384,40 +382,23 @@ int background_functions(
       /* (rho_ncdm1 - 3 p_ncdm1) is the "non-relativistic" contribution
          to rho_ncdm1 */
       rho_m += rho_ncdm - 3.* p_ncdm;
+
     }
   }
 
  /* inu */
   if (pba->has_inu == _TRUE_) {
 
-/* Isabel: no need to call this function here in the massive case: */
-
-      /* function returning background inu quantities (only
-         those for which non-NULL pointers are passed) */
-
- /*     class_call(background_inu_momenta(
-                                         pba->q_inu_bg,
-                                         pba->w_inu_bg,
-                                         pba->q_size_inu_bg,
-                                         pba->factor_inu,
-                                         1./a_rel-1.,
-                                         NULL,
-                                         &rho_inu,
-                                         &p_inu,
-                                         NULL),
-                 pba->error_message,
-                 pba->error_message);
-
-      pvecback[pba->index_bg_rho_inu] = rho_inu*n_inu; */
+/* Isabel: In the massless case, we have to call the function background_inu_momenta to obtain rho_inu and p_inu, see ncdm. */
 
       pvecback[pba->index_bg_rho_inu] = pba->Omega0_inu_tot * pow(pba->H0,2) / pow(a_rel,4);
-      rho_inu = pvecback[pba->index_bg_rho_inu]/n_inu;
-      p_inu = (1./3.) * pvecback[pba->index_bg_rho_inu]/n_inu;
+      rho_inu = pvecback[pba->index_bg_rho_inu]/pba->N_inu;
+      p_inu = (1./3.) * pvecback[pba->index_bg_rho_inu]/pba->N_inu;
       rho_tot += pvecback[pba->index_bg_rho_inu];
       p_tot += (1./3.) * pvecback[pba->index_bg_rho_inu];
       rho_r += pvecback[pba->index_bg_rho_inu];
 
-/* Isabel: Note that with this definition pvecback[pba->index_bg_rho_inu] and pvecback[pba->index_bg_p_inu] are for ALL inu species whereas rho_inu and p_inu are only for ONE inu species */
+/* Isabel: Note that with this definition pvecback[pba->index_bg_rho_inu] is for ALL inu species whereas rho_inu and p_inu are only for ONE inu species */
 
   }
 
@@ -497,7 +478,6 @@ int background_init(
 
   /** - local variables : */
   int n_ncdm;
-  int n_inu;
   double rho_ncdm_rel,rho_nu_rel;
   double Neff;
   int filenum=0;
@@ -1087,59 +1067,12 @@ int background_inu_distribution(
   double qlast,dqlast,f0last,df0last;
   double param;
 
-  /** - extract from the input structure pbadist all the relevant information */
-  pbadist_local = pbadist;          /* restore actual format of pbadist */
-  pba = pbadist_local->pba;         /* extract the background structure from it */
-  param = pba->inu_psd_parameters; /* extract the optional parameter list from it */
+    /* Isabel: For the massless case, we have to read in and interpolate files of the background distribution here, see ncdm.     
 
-  /** - shall we interpolate in file, or shall we use analytical formula below? */
-
-  /** -> deal first with the case of interpolating in files -> this will be relevant for the massless case */
-  if (pba->got_files_inu==_TRUE_) {
-
-    lastidx = pbadist_local->tablesize-1;
-    if(q<pbadist_local->q[0]){
-      //Handle q->0 case:
-      *f0 = pbadist_local->f0[0];
-    }
-    else if(q>pbadist_local->q[lastidx]){
-      //Handle q>qmax case (ensure continuous and derivable function with Boltzmann tail):
-      qlast=pbadist_local->q[lastidx];
-      f0last=pbadist_local->f0[lastidx];
-      dqlast=qlast - pbadist_local->q[lastidx-1];
-      df0last=f0last - pbadist_local->f0[lastidx-1];
-
-      *f0 = f0last*exp(-(qlast-q)*df0last/f0last/dqlast);
-    }
-    else{
-      //Do interpolation:
-      class_call(array_interpolate_spline(
-                                          pbadist_local->q,
-                                          pbadist_local->tablesize,
-                                          pbadist_local->f0,
-                                          pbadist_local->d2f0,
-                                          1,
-                                          q,
-                                          &pbadist_local->last_index,
-                                          f0,
-                                          1,
-                                          pba->error_message),
-                 pba->error_message,     pba->error_message);
-    }
-  }
-
-  /** -> deal now with case of reading analytical function -> this should be used for the massive case */
-  else{
-
-    /**************************************************/
     /*    FERMI-DIRAC  */
-    /**************************************************/
+    /* Isabel: This definition counts already for neutrinos AND anti-neutrinos */
 
-    *f0 = 1.0/pow(2*_PI_,3)*(1./(exp(q)+1.));
-
-    /**************************************************/
-
-  }
+    *f0 = 2.0/pow(2*_PI_,3)*(1./(exp(q)+1.));
 
   return _SUCCESS_;
 }
@@ -1389,58 +1322,11 @@ int background_inu_init(
                          struct background *pba
                          ) {
 
-  int index_q, k,tolexp,row,status,filenum;
+  int index_q, k,tolexp,row,status;
   double f0m2,f0m1,f0,f0p1,f0p2,dq,q,df0dq,tmp1,tmp2;
   struct background_parameters_for_distributions pbadist;
-  FILE *psdfile;
 
   pbadist.pba = pba;
-
-  /* Allocate pointer arrays: */
-  class_alloc(pba->q_inu, sizeof(double*),pba->error_message);
-  class_alloc(pba->w_inu, sizeof(double*),pba->error_message);
-  class_alloc(pba->q_inu_bg, sizeof(double*),pba->error_message);
-  class_alloc(pba->w_inu_bg, sizeof(double*),pba->error_message);
-  class_alloc(pba->dlnf0_dlnq_inu, sizeof(double*),pba->error_message);
-
-  /* Isabel: Need a loop here later for massless case */
-
-    pbadist.q = NULL;
-    pbadist.tablesize = 0;
-    /*Do we need to read in a file to interpolate the distribution function? */
-    if ((pba->got_files_inu!=NULL)&&(pba->got_files_inu==_TRUE_)){
-      psdfile = fopen(pba->inu_psd_files+filenum*_ARGUMENT_LENGTH_MAX_,"r");
-      class_test(psdfile == NULL,pba->error_message,
-                 "Could not open file %s!",pba->inu_psd_files+filenum*_ARGUMENT_LENGTH_MAX_);
-      // Find size of table:
-      for (row=0,status=2; status==2; row++){
-        status = fscanf(psdfile,"%lf %lf",&tmp1,&tmp2);
-      }
-      rewind(psdfile);
-      pbadist.tablesize = row-1;
-
-      /*Allocate room for interpolation table: */
-      class_alloc(pbadist.q,sizeof(double)*pbadist.tablesize,pba->error_message);
-      class_alloc(pbadist.f0,sizeof(double)*pbadist.tablesize,pba->error_message);
-      class_alloc(pbadist.d2f0,sizeof(double)*pbadist.tablesize,pba->error_message);
-      for (row=0; row<pbadist.tablesize; row++){
-        status = fscanf(psdfile,"%lf %lf",
-                        &pbadist.q[row],&pbadist.f0[row]);
-        //		printf("(q,f0) = (%g,%g)\n",pbadist.q[row],pbadist.f0[row]);
-      }
-      fclose(psdfile);
-      /* Call spline interpolation: */
-      class_call(array_spline_table_lines(pbadist.q,
-                                          pbadist.tablesize,
-                                          pbadist.f0,
-                                          1,
-                                          pbadist.d2f0,
-                                          _SPLINE_EST_DERIV_,
-                                          pba->error_message),
-                 pba->error_message,
-                 pba->error_message);
-      filenum++;
-    }
 
     /* Handle perturbation qsampling: */
     class_alloc(pba->q_inu,_QUADRATURE_MAX_*sizeof(double),pba->error_message);
@@ -1462,97 +1348,29 @@ int background_inu_init(
     pba->q_inu=realloc(pba->q_inu,pba->q_size_inu*sizeof(double));
     pba->w_inu=realloc(pba->w_inu,pba->q_size_inu*sizeof(double));
 
+   /* Isabel: For the massless case we have to compute here also q_inu_bg an w_inu_bg, see ncdm. */
 
     if (pba->background_verbose > 0)
       printf("inu species i=%d sampled with %d points for purpose of perturbation integration\n",
              k+1,
              pba->q_size_inu);
 
-    /* Handle background q_sampling: */
-    class_alloc(pba->q_inu_bg,_QUADRATURE_MAX_BG_*sizeof(double),pba->error_message);
-    class_alloc(pba->w_inu,_QUADRATURE_MAX_BG_*sizeof(double),pba->error_message);
-
-    class_call(get_qsampling(pba->q_inu_bg,
-                             pba->w_inu_bg,
-                             &(pba->q_size_inu_bg),
-                             _QUADRATURE_MAX_BG_,
-                             ppr->tol_inu_bg,
-                             pbadist.q,
-                             pbadist.tablesize,
-                             background_inu_test_function,
-                             background_inu_distribution,
-                             &pbadist,
-                             pba->error_message),
-               pba->error_message,
-               pba->error_message);
-
-
-    pba->q_inu_bg=realloc(pba->q_inu_bg,pba->q_size_inu_bg*sizeof(double));
-    pba->w_inu_bg=realloc(pba->w_inu_bg,pba->q_size_inu_bg*sizeof(double));
-
-    /** - in verbose mode, inform user of number of sampled momenta
-        for background quantities */
-    if (pba->background_verbose > 0)
-      printf("inu species i=%d sampled with %d points for purpose of background integration\n",
-             k+1,
-             pba->q_size_inu_bg);
-
     class_alloc(pba->dlnf0_dlnq_inu,
                 pba->q_size_inu*sizeof(double),
                 pba->error_message);
-
-
+    /* Isabel: For the massless case, the following part also needs to be modified: */
+ 
     for (index_q=0; index_q<pba->q_size_inu; index_q++) {
       q = pba->q_inu[index_q];
-      class_call(background_inu_distribution(&pbadist,q,&f0),
-                 pba->error_message,pba->error_message);
-
-      //Loop to find appropriate dq:
-      for(tolexp=_PSD_DERIVATIVE_EXP_MIN_; tolexp<_PSD_DERIVATIVE_EXP_MAX_; tolexp++){
-
-        if (index_q == 0){
-          dq = MIN((0.5-ppr->smallest_allowed_variation)*q,2*exp(tolexp)*(pba->q_inu[index_q+1]-q));
-        }
-        else if (index_q == pba->q_size_inu-1){
-          dq = exp(tolexp)*2.0*(pba->q_inu[index_q]-pba->q_inu[index_q-1]);
-        }
-        else{
-          dq = exp(tolexp)*(pba->q_inu[index_q+1]-pba->q_inu[index_q-1]);
-        }
-
-        class_call(background_inu_distribution(&pbadist,q-2*dq,&f0m2),
-                   pba->error_message,pba->error_message);
-        class_call(background_inu_distribution(&pbadist,q+2*dq,&f0p2),
-                   pba->error_message,pba->error_message);
-
-        if (fabs((f0p2-f0m2)/f0)>sqrt(ppr->smallest_allowed_variation)) break;
-      }
-
-      class_call(background_inu_distribution(&pbadist,q-dq,&f0m1),
-                 pba->error_message,pba->error_message);
-      class_call(background_inu_distribution(&pbadist,q+dq,&f0p1),
-                 pba->error_message,pba->error_message);
-      //5 point estimate of the derivative:
-      df0dq = (+f0m2-8*f0m1+8*f0p1-f0p2)/12.0/dq;
-      //printf("df0dq[%g] = %g. dlf=%g ?= %g. f0 =%g.\n",q,df0dq,q/f0*df0dq,
-      //Avoid underflow in extreme tail:
-      if (fabs(f0)==0.)
+    
         pba->dlnf0_dlnq_inu[index_q] = -q; /* valid for whatever f0 with exponential tail in exp(-q) */
-      else
-        pba->dlnf0_dlnq_inu[index_q] = q/f0*df0dq;
     }
 
     pba->factor_inu=pba->deg_inu*4*_PI_*pow(pba->T_cmb*pba->T_inu*_k_B_,4)*8*_PI_*_G_
       /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_;
 
-    /* If allocated, deallocate interpolation table:  */
-    if ((pba->got_files_inu!=NULL)&&(pba->got_files_inu==_TRUE_)){
-      free(pbadist.q);
-      free(pbadist.f0);
-      free(pbadist.d2f0);
-    }
-
   return _SUCCESS_;
+
 }
 
 
@@ -2108,7 +1926,6 @@ int background_initial_conditions(
   double f,Omega_rad, rho_rad;
   int counter,is_early_enough;
   int n_ncdm;
-  int n_inu;
   double scf_lambda;
 
   /** - fix initial value of \f$ a \f$ */
@@ -2155,22 +1972,21 @@ int background_initial_conditions(
 	       "Search for initial scale factor a such that all ncdm species are relativistic failed.");
   }
 
-/* ISABEL: No need for this routine above for massless inu...? **/
-
   pvecback_integration[pba->index_bi_a] = a;
 
   /* Set initial values of {B} variables: */
   Omega_rad = pba->Omega0_g;
   if (pba->has_ur == _TRUE_)
     Omega_rad += pba->Omega0_ur;
-  rho_rad = Omega_rad*pow(pba->H0,2)/pow(a/pba->a_today,4);
+    rho_rad = Omega_rad*pow(pba->H0,2)/pow(a/pba->a_today,4);
   if (pba->has_ncdm == _TRUE_){
     /** We must add the relativistic contribution from NCDM species: */
     rho_rad += rho_ncdm_rel_tot;
   }
    if (pba->has_inu == _TRUE_){
-    /** We must add the contribution from inu species: */
-    rho_rad += pba->Omega0_inu_tot * pow(pba->H0,2) / pow(a/pba->a_today,4);
+     Omega_rad += pba->Omega0_inu_tot;
+     rho_rad = Omega_rad*pow(pba->H0,2)/pow(a/pba->a_today,4);
+    /*rho_rad += pba->Omega0_inu_tot * pow(pba->H0,2) / pow(a/pba->a_today,4); */
   }
   if (pba->has_dcdm == _TRUE_){
     /* Remember that the critical density today in CLASS conventions is H0^2 */
