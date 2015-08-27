@@ -1035,7 +1035,6 @@ int background_ncdm_test_function(
   /** Using a + bq creates problems for otherwise acceptable distributions
       which diverges as 1/r or 1/r^2 for r->0 */
   *test = pow(2.0*_PI_,3)/6.0*(c*q*q-d*q*q*q-e*q*q*q*q);
-
   return _SUCCESS_;
 }
 
@@ -1354,7 +1353,7 @@ int background_ncdm_psd_Qmoments(
   double * qvec = pba->q_ncdm_bg[n_ncdm];
   double * wvec = pba->w_ncdm_bg[n_ncdm];
   int index_q, p;
-  double wq2epsilon, a2,q2, q_over_epsilon_2pow, epsilon2, a2M2, q2_over_epsilon2;
+  double wq2epsilon, a2,q, q2, q_over_epsilon_pow, epsilon, a2M2, q_over_epsilon;
   a2M2 = a*a*(pba->M_ncdm[n_ncdm])*(pba->M_ncdm[n_ncdm]);
 
   for (p=0; p<N; p++){
@@ -1364,15 +1363,16 @@ int background_ncdm_psd_Qmoments(
   /** - loop over momenta */
   for (index_q=0; index_q<pba->q_size_ncdm_bg[n_ncdm]; index_q++) {
 
-    q2 = qvec[index_q]*qvec[index_q];
-    epsilon2 = q2+a2M2;
-    q2_over_epsilon2 = q2/epsilon2;
-    wq2epsilon = wvec[index_q]*q2*sqrt(epsilon2);
+    q = qvec[index_q];
+    q2 = q*q;
+    epsilon = sqrt(q2+a2M2);
+    q_over_epsilon = q/epsilon;
+    wq2epsilon = wvec[index_q]*q2*epsilon;
 
-    q_over_epsilon_2pow = 1.0;
+    q_over_epsilon_pow = 1.0;
     for (p=0; p<N; p++){
-      Qp[p] += wq2epsilon*q_over_epsilon_2pow;
-      q_over_epsilon_2pow *= q2_over_epsilon2;
+      Qp[p] += wq2epsilon*q_over_epsilon_pow;
+      q_over_epsilon_pow *= q_over_epsilon;
     }
   }
 
@@ -1962,11 +1962,20 @@ int background_output_titles(struct background * pba,
   class_store_columntitle(titles,"(.)rho_b",_TRUE_);
   class_store_columntitle(titles,"(.)rho_cdm",pba->has_cdm);
   if (pba->has_ncdm == _TRUE_){
+    int p;
     for (n=0; n<pba->N_ncdm; n++){
       sprintf(tmp,"(.)rho_ncdm[%d]",n);
       class_store_columntitle(titles,tmp,_TRUE_);
       sprintf(tmp,"(.)p_ncdm[%d]",n);
       class_store_columntitle(titles,tmp,_TRUE_);
+      for (p=0; p<20; p++){
+        sprintf(tmp,"Q_%d",p);
+        class_store_columntitle(titles,tmp,_TRUE_);
+        sprintf(tmp,"R_%d",p);
+        class_store_columntitle(titles,tmp,_TRUE_);
+        sprintf(tmp,"S_%d",p);
+        class_store_columntitle(titles,tmp,_TRUE_);
+      }
     }
   }
   class_store_columntitle(titles,"(.)rho_lambda",pba->has_lambda);
@@ -2015,10 +2024,20 @@ int background_output_data(
     class_store_double(dataptr,pvecback[pba->index_bg_rho_b],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_rho_cdm],pba->has_cdm,storeidx);
     if (pba->has_ncdm == _TRUE_){
+      int p;
+      double *Q = malloc(sizeof(double)*22);
+
       for (n=0; n<pba->N_ncdm; n++){
+        background_ncdm_psd_Qmoments(pba,pvecback[pba->index_bg_a],n,22,Q);
         class_store_double(dataptr,pvecback[pba->index_bg_rho_ncdm1+n],_TRUE_,storeidx);
         class_store_double(dataptr,pvecback[pba->index_bg_p_ncdm1+n],_TRUE_,storeidx);
+        for (p=0; p<20; p++){
+          class_store_double(dataptr,Q[p],_TRUE_,storeidx);
+          class_store_double(dataptr,Q[p+1]/Q[p],_TRUE_,storeidx);
+          class_store_double(dataptr,Q[p+2]/Q[p],_TRUE_,storeidx);
+        }
       }
+      free(Q);
     }
     class_store_double(dataptr,pvecback[pba->index_bg_rho_lambda],pba->has_lambda,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_rho_fld],pba->has_fld,storeidx);

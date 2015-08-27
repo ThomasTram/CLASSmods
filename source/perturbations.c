@@ -1961,7 +1961,7 @@ int perturb_workspace_init(
 
       ppw->ncdmnra_expansion_order = ppr->ncdmnra_expansion_order;
       ppw->ncdmnra_lmax = ppw->ncdmnra_expansion_order+1;
-      ppw->Q_length = (ppw->ncdmnra_expansion_order+1)/2+3;
+      ppw->Q_length = ppw->ncdmnra_expansion_order+5;
       class_alloc(ppw->Q_moments, ppw->Q_length*sizeof(double), ppt->error_message);
       class_alloc(ppw->Np, (ppw->ncdmnra_lmax+1)*sizeof(double), ppt->error_message);
 
@@ -2490,7 +2490,7 @@ int perturb_prepare_output(struct background * pba,
       class_store_columntitle(ppt->scalar_titles,"delta_cdm",pba->has_cdm);
       class_store_columntitle(ppt->scalar_titles,"theta_cdm",pba->has_cdm);
       /* Non-cold dark matter */
-      int p;
+      int l,p;
       if (pba->has_ncdm == _TRUE_) {
         for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
           sprintf(tmp,"delta_ncdm[%d]",n_ncdm);
@@ -2501,10 +2501,20 @@ int perturb_prepare_output(struct background * pba,
           class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
           sprintf(tmp,"cs2_ncdm[%d]",n_ncdm);
           class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
-          /**for (p=0; p<=ppr->ncdmnra_p_max; p++){
-            sprintf(tmp,"W_{%d,0}_n%d",p,n_ncdm);
-            class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
-            }*/
+          for (l=0; l<=(ppr->ncdmnra_expansion_order+1); l++){
+            for (p=0; p<=(ppr->ncdmnra_expansion_order+1-l)/2; p++){
+              sprintf(tmp,"W(l%dp%d)%d",l,p,n_ncdm);
+              class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
+              sprintf(tmp,"Km(l%dp%d)%d",l,p,n_ncdm);
+              class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
+              sprintf(tmp,"Kp(l%dp%d)%d",l,p,n_ncdm);
+              class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
+              sprintf(tmp,"D(l%dp%d)%d",l,p,n_ncdm);
+              class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
+              sprintf(tmp,"S(l%dp%d)%d",l,p,n_ncdm);
+              class_store_columntitle(ppt->scalar_titles,tmp,_TRUE_);
+            }
+          }
         }
       }
       /* Decaying cold dark matter */
@@ -3865,6 +3875,15 @@ int perturb_vector_init(
                 }
                 index_pt += (ppw->pv->l_max_ncdm[n_ncdm]+1);
               }
+
+              /** Renormalise perturbations */
+              background_ncdm_psd_Qmoments(pba, a, n_ncdm, ppw->Q_length, ppw->Q_moments);
+              for (l=0; l<=ppw->ncdmnra_lmax; l++){
+                for (p=0; p<=(ppw->ncdmnra_lmax-l)/2; p++){
+                  ppv->y[index_pt_new+ppw->Np[l]+p] /= ppw->Q_moments[2*p+l];
+                }
+              }
+
               index_pt_new += (ppv->l_max_ncdm[n_ncdm]+1);
             }
             else{
@@ -6525,39 +6544,100 @@ int perturb_print_variables(double tau,
     class_store_double(dataptr, theta_cdm, pba->has_cdm, storeidx);
     /* Non-cold Dark Matter */
     if (pba->has_ncdm == _TRUE_) {
-      int p,idx=ppw->pv->index_pt_psi0_ncdm1;
+      int l,p,idx=ppw->pv->index_pt_psi0_ncdm1;
+      double *Wpl, q, epsilon;
+      double W_plus, W_minus, damping_term, source_term;
+      double a_prime_over_a = pvecback[pba->index_bg_H] * a;
+      double metric_continuity;
+      double metric_euler;
+      double metric_shear;
+      if (ppt->gauge == synchronous) {
+        metric_continuity = pvecmetric[ppw->index_mt_h_prime]/2.;
+        metric_euler = 0.;
+        metric_shear = k*k * pvecmetric[ppw->index_mt_alpha];
+      }
+      if (ppt->gauge == newtonian) {
+        metric_continuity = -3.*pvecmetric[ppw->index_mt_phi_prime];
+        metric_euler = k*k*pvecmetric[ppw->index_mt_psi];
+        metric_shear = 0.;
+      }
+
       for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++){
         class_store_double(dataptr, delta_ncdm[n_ncdm], _TRUE_, storeidx);
         class_store_double(dataptr, theta_ncdm[n_ncdm], _TRUE_, storeidx);
         class_store_double(dataptr, shear_ncdm[n_ncdm], _TRUE_, storeidx);
         class_store_double(dataptr, delta_p_over_delta_rho_ncdm[n_ncdm],  _TRUE_, storeidx);
-        /**
         if (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on){
-          for (p=0; p<=ppw->ncdmnra_p_max; p++){
-
-            class_store_double(dataptr, y[idx],_TRUE_, storeidx);
-            idx+= (ppw->pv->l_max_ncdm[n_ncdm]+1);
-
-          }
+          Wpl = y+idx;
+          idx+= (ppw->pv->l_max_ncdm[n_ncdm]+1);
         }
         else{
-          double *q_moments = ppw->q_moments+n_ncdm*(ppw->ncdmnra_p_max+3);
-          double W0p;
+          Wpl = malloc(sizeof(double)*ppw->Np[ppw->ncdmnra_lmax+1]);
+          background_ncdm_psd_Qmoments(pba, a, n_ncdm, ppw->Q_length, ppw->Q_moments);
+          for (l=0; l<=ppw->ncdmnra_lmax; l++){
+            for (p=0; p<=(ppw->ncdmnra_lmax-l)/2; p++){
+              Wpl[ppw->Np[l]+p] = 0.0;
 
-          for (p=0; p <= ppw->ncdmnra_p_max; p++){
-
-            W0p = 0.0;
-
-            for(index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q++){
-              // Integrate over distributions:
-              W0p +=  pba->w_ncdm[n_ncdm][index_q]* pba->q_ncdm[n_ncdm][index_q]* pba->q_ncdm[n_ncdm][index_q]*
-                pow( pba->q_ncdm[n_ncdm][index_q]/pba->M_ncdm[n_ncdm],p)*y[idx+index_q*(ppw->pv->l_max_ncdm[n_ncdm]+1)];
+              for(index_q=0; index_q < ppw->pv->q_size_ncdm[n_ncdm]; index_q++){
+                // Integrate over distributions:
+                q = pba->q_ncdm[n_ncdm][index_q];
+                epsilon = sqrt(q*q+a*a*pba->M_ncdm[n_ncdm]*pba->M_ncdm[n_ncdm]);
+                Wpl[ppw->Np[l]+p] +=  pba->w_ncdm[n_ncdm][index_q]*q*q*epsilon*pow(q/epsilon,2*p+l)*y[idx+index_q*(ppw->pv->l_max_ncdm[n_ncdm]+1)+l]/ppw->Q_moments[2*p+l];
+              }
             }
-            class_store_double(dataptr, W0p/q_moments[p+1],_TRUE_, storeidx);
           }
+
           idx += (ppw->pv->q_size_ncdm[n_ncdm])*(ppw->pv->l_max_ncdm[n_ncdm]+1);
         }
-        */
+        for (l=0; l<=ppw->ncdmnra_lmax; l++){
+          for (p=0; p<=(ppw->ncdmnra_lmax-l)/2; p++){
+            if ((2*p+l-1)==ppw->ncdmnra_expansion_order){
+              W_minus = 0.;
+              W_plus = 0.;//(2.*l+1.)/(k*tau)*y[idx+ppw->Np[l]+p];
+            }
+            else{
+              if (l==0)
+                W_minus = 0.;
+              else
+                W_minus = Wpl[ppw->Np[l-1]+p+1];
+              if (l==ppw->ncdmnra_lmax)
+                W_plus = 0.;//(2.*l+1.)/(k*tau)*y[idx+ppw->Np[l]+p]-y[idx+ppw->Np[l-1]+(p+1)];
+              else
+                W_plus = Wpl[ppw->Np[l+1]+p];
+            }
+
+            /** Set term due to time-dependent definition of W: */
+            if (p==((ppw->ncdmnra_lmax-l)/2))
+              damping_term =  Wpl[ppw->Np[l]+p];
+            else
+              damping_term = Wpl[ppw->Np[l]+p]-Wpl[ppw->Np[l]+p+1];
+            damping_term *= (-(2*p+l-1)*a_prime_over_a);
+
+            /** Perhaps set source terms: */
+            if (l==0){
+              source_term = metric_continuity/3.*
+                ((2*p-1)*ppw->Q_moments[2*p+2]/ppw->Q_moments[2*p]-(2*p+3));
+            }
+            else if (l==1){
+              source_term = -metric_euler/(3.*k)*
+                ((2*p-1)*ppw->Q_moments[2*p+2]/ppw->Q_moments[2*p+1]-(2*p+3)*ppw->Q_moments[2*p]/ppw->Q_moments[2*p+1]);
+            }
+            else if (l==2){
+              source_term = -2./15.*metric_shear*
+                ((2*p+1)*ppw->Q_moments[2*p+4]/ppw->Q_moments[2*p+2]-(2*p+5));
+            }
+            else{
+              source_term = 0.;
+            }
+            class_store_double(dataptr, Wpl[ppw->Np[l]+p],_TRUE_,storeidx);
+            class_store_double(dataptr,k/(2.*l+1.)*ppw->Q_moments[2*p+l+1]/ppw->Q_moments[2*p+l]*l*W_minus, _TRUE_, storeidx);
+            class_store_double(dataptr,-k/(2.*l+1.)*ppw->Q_moments[2*p+l+1]/ppw->Q_moments[2*p+l]*(l+1.)*W_plus, _TRUE_,storeidx);
+            class_store_double(dataptr,ppw->Q_moments[2*p+l+2]/ppw->Q_moments[2*p+l]*damping_term,_TRUE_,storeidx);
+            class_store_double(dataptr,source_term,_TRUE_,storeidx);
+          }
+        }
+        if (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_off)
+          free(Wpl);
       }
     }
     /* Decaying cold dark matter */
@@ -6750,11 +6830,13 @@ int perturb_ncdm_quantities(struct background * pba,
      else if (ppw->approx[ppw->index_ap_ncdmnra+n_ncdm] == (int)ncdmnra_on){
        /** We are in the non-relativistic approximation */
        factor = pba->factor_ncdm[n_ncdm]*pow(pba->a_today/a,4);
+       /** Get Qnp moments. Here we could decrease Q_length in principle. */
+       background_ncdm_psd_Qmoments(pba, a, n_ncdm, ppw->Q_length, ppw->Q_moments);
 
-       rho_delta[n_ncdm] = factor*y[idx+ppw->Np[0]+0];
-       delta_p[n_ncdm] = factor/3.*y[idx+ppw->Np[0]+1];
-       rho_plus_p_theta[n_ncdm] = k*factor*y[idx+ppw->Np[1]+0];
-       rho_plus_p_shear[n_ncdm] = 2./3.*factor*y[idx+ppw->Np[2]+0];
+       rho_delta[n_ncdm] = factor*y[idx+ppw->Np[0]+0]*ppw->Q_moments[0];
+       delta_p[n_ncdm] = factor/3.*y[idx+ppw->Np[0]+1]*ppw->Q_moments[2];
+       rho_plus_p_theta[n_ncdm] = k*factor*y[idx+ppw->Np[1]+0]*ppw->Q_moments[1];
+       rho_plus_p_shear[n_ncdm] = 2./3.*factor*y[idx+ppw->Np[2]+0]*ppw->Q_moments[2];
 
        idx += (ppw->pv->l_max_ncdm[n_ncdm]+1);
 
@@ -7501,7 +7583,7 @@ int perturb_derivs(double tau,
             for (p=0; p<=(ppw->ncdmnra_lmax-l)/2; p++){
               if ((2*p+l-1)==ppw->ncdmnra_expansion_order){
                 W_minus = 0.;
-                W_plus = 0.0;//(2.*l+1.)/(k*tau)*y[idx+ppw->Np[l]+p];
+                W_plus = 0.;//(2.*l+1.)/(k*tau)*y[idx+ppw->Np[l]+p];
               }
               else{
                 if (l==0)
@@ -7509,7 +7591,7 @@ int perturb_derivs(double tau,
                 else
                   W_minus = y[idx+ppw->Np[l-1]+p+1];
                 if (l==ppw->ncdmnra_lmax)
-                  W_plus = 0.0;//(2.*l+1.)/(k*tau)*y[idx+ppw->Np[l]+p]-y[idx+ppw->Np[l-1]+(p+1)];
+                  W_plus = 0.;//(2.*l+1.)/(k*tau)*y[idx+ppw->Np[l]+p]-y[idx+ppw->Np[l-1]+(p+1)];
                 else
                   W_plus = y[idx+ppw->Np[l+1]+p];
               }
@@ -7524,22 +7606,47 @@ int perturb_derivs(double tau,
               /** Perhaps set source terms: */
               if (l==0){
                 source_term = metric_continuity/3.*
-                  ((2*p-1)*ppw->Q_moments[p+1]-(2*p+3)*ppw->Q_moments[p]);
+                  ((2*p-1)*ppw->Q_moments[2*p+2]/ppw->Q_moments[2*p]-(2*p+3));
               }
               else if (l==1){
                 source_term = -metric_euler/(3.*k)*
-                  ((2*p-1)*ppw->Q_moments[p+1]-(2*p+3)*ppw->Q_moments[p]);
+                  ((2*p-1)*ppw->Q_moments[2*p+2]/ppw->Q_moments[2*p+1]-(2*p+3)*ppw->Q_moments[2*p]/ppw->Q_moments[2*p+1]);
               }
               else if (l==2){
                 source_term = -2./15.*metric_shear*
-                  ((2*p+1)*ppw->Q_moments[p+2]-(2*p+5)*ppw->Q_moments[p+1]);
+                  ((2*p+1)*ppw->Q_moments[2*p+4]/ppw->Q_moments[2*p+2]-(2*p+5));
               }
               else{
                 source_term = 0.;
               }
 
               /** Finally set d/dtau (W_{n,p,l}) : */
-                dy[idx+ppw->Np[l]+p] = k/(2.*l+1.)*(l*W_minus-(l+1.)*W_plus)+damping_term+source_term;
+              if ((p == ppw->ncdmnra_lmax/2)&&(l==0))
+                source_term = 0.;
+
+              dy[idx+ppw->Np[l]+p] = k/(2.*l+1.)*ppw->Q_moments[2*p+l+1]/ppw->Q_moments[2*p+l]*(l*W_minus-(l+1.)*W_plus)+
+                ppw->Q_moments[2*p+l+2]/ppw->Q_moments[2*p+l]*damping_term+source_term;
+
+              if ((k==5.)&&(p==11)&&(l==0))
+                fprintf(stderr,"%.16e %.16e %.16e %.16e %.16e %.16e %.16e\n",
+                        tau,
+                        y[idx+ppw->Np[l]+p],
+                        dy[idx+ppw->Np[l]+p],
+                        k/(2.*l+1.)*ppw->Q_moments[2*p+l+1]/ppw->Q_moments[2*p+l]*l*W_minus,
+                        -k/(2.*l+1.)*ppw->Q_moments[2*p+l+1]/ppw->Q_moments[2*p+l]*(l+1.)*W_plus,
+                        ppw->Q_moments[2*p+l+2]/ppw->Q_moments[2*p+l]*damping_term,
+                        source_term);
+
+              /**
+              if ((2*p+l-1)==ppw->ncdmnra_expansion_order){
+                dy[idx+ppw->Np[l]+p] = -(l+1.)/tau*y[idx+ppw->Np[l]+p]+source_term+damping_term;
+                if (l!=0)
+                  dy[idx+ppw->Np[l]+p] += k*ppw->Q_moments[2*p+l+1]/ppw->Q_moments[2*p+l-1]*y[idx+ppw->Np[l-1]+p];
+              }
+              else
+                dy[idx+ppw->Np[l]+p] = k/(2.*l+1.)*ppw->Q_moments[2*p+l+1]/ppw->Q_moments[2*p+l]*(l*W_minus-(l+1.)*W_plus)+
+                  ppw->Q_moments[2*p+l+2]/ppw->Q_moments[2*p+l]*damping_term+source_term;
+              */
               /**printf("W_{%d,%d} = %.4e. Wdot/W = %.4e = %.4e + %4e + %4e. metric_euler = %.16e\n",
                      p,l,
                      y[idx+ppw->Np[l]+p],

@@ -248,6 +248,8 @@ int get_qsampling(double *x,
       Laguerre_converging = _FALSE_;
     }
   }
+
+
   //printf("N_adapt=%d, N_combined=%d at level=%d, Nlag=%d\n",Nadapt,N_comb,level,NLag);
   if (adapt_converging==_TRUE_){
     sprintf(method_chosen,"Adaptive Gauss-Kronrod Quadrature");
@@ -279,6 +281,11 @@ int get_qsampling(double *x,
     class_stop(errmsg,
 		"get_qsampling fails to obtain a relative tolerance of %g as required using atmost %d points. If the PSD is interpolated from a file, try increasing the resolution and the q-interval (qmin;qmax) if possible, or decrease tol_ncdm/tol_ncdm_bg. As a last resort, increase _QUADRATURE_MAX_/_QUADRATURE_MAX_BG_.",rtol,N_max);
   }
+
+  //FOR DEBUG
+  *N=NLag_max;
+  compute_Laguerre(x,w,NLag_max,0.0,b,c,_TRUE_);
+
   /* Trim weights to avoid zero weights: */
   for(i=0,zeroskip=0; i<*N; i++){
     for( ;(i<*N)&&(w[i+zeroskip]==0.0); zeroskip++,(*N)--);
@@ -836,4 +843,3 @@ int cubature_order_eleven(
 
   return _SUCCESS_;
 }
-
