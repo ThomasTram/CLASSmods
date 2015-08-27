@@ -565,7 +565,6 @@ int input_read_parameters(
   int flag1,flag2,flag3;
   double param1,param2,param3;
   int N_ncdm=0,n,entries_read;
-  int N_inu=0;
   int int1,fileentries;
   double scf_lambda;
   double fnu_factor;
@@ -592,7 +591,6 @@ int input_read_parameters(
   double sigma_B; /**< Stefan-Boltzmann constant in W/m^2/K^4 = Kg/K^4/s^3 */
 
   double rho_ncdm;
-  double rho_inu;
   double R0,R1,R2,R3,R4;
   double PSR0,PSR1,PSR2,PSR3,PSR4;
   double HSR0,HSR1,HSR2,HSR3,HSR4;
@@ -974,33 +972,64 @@ int input_read_parameters(
   Omega_tot += pba->Omega0_ncdm_tot;
 
   /* Omega_0_inu (ultra-relativistic interacting species) */
+  /* (a) try to read N_inu */
+  class_call(parser_read_double(pfc,"N_inu",&param1,&flag1,errmsg),
+             errmsg,
+             errmsg);
+ /* (b) try to read Omega_inu */
+  class_call(parser_read_double(pfc,"Omega_inu",&param2,&flag2,errmsg),
+             errmsg,
+             errmsg);
 
-  /* read N_inu */
-  class_read_int("N_inu",N_inu);
-   if (N_inu > 0){
+  /* (c) try to read omega_inu */
+  class_call(parser_read_double(pfc,"omega_inu",&param3,&flag3,errmsg),
+             errmsg,
+             errmsg);
 
-      pba->N_inu = N_inu;
+  /* (d) infer the unpassed ones from the passed one */
+  class_test(class_at_least_two_of_three(flag1,flag2,flag3),
+             errmsg,
+             "In input file, you can only enter one of N_inu, Omega_inu or omega_inu, choose one");
 
-/*Isabel: Still have to fix that default values are used if no vlaue is found in ini-file. Is there an equivalent of "class_read_list_of_doubles_or_default", but not for lists?   */
-    
-      /* read G_massive, deg_inu, T0_inu T_inu*/ 
-      class_read_double("G_massive",pba->G_massive);
-      class_read_double("deg_inu",pba->deg_inu);
-      class_read_double("T0_inu",pba->T0_inu);
-      class_read_double("T_inu",pba->T_inu);
+  if (class_none_of_three(flag1,flag2,flag3)) {
+    pba->Omega0_inu = 0.0;
+  }
+  else {
 
-   /* Isabel: For the massless case we need to read in tables of background distribution function, see ncdm */
-    class_call(background_inu_init(ppr,pba),pba->error_message,errmsg); 
-              
-      /* contribution of one species: */
-      pba->Omega0_inu= 7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
+    if (flag1 == _TRUE_) {
+      pba->Omega0_inu = param1*7./8.*pow(4./11.,4./3.)*pba->Omega0_g;
+    }
+    if (flag2 == _TRUE_) {
+      pba->Omega0_inu = param2;
+    }
+    if (flag3 == _TRUE_) {
+      pba->Omega0_inu = param3/pba->h/pba->h;
+    }
+    /** Thomas: N_inu is just one possible way of setting the energy density of inu. I don't think we need to store it.
+        N_inu will be like N_ur, just for inu species. Note that for 1 inu species, this number may be different
+        from 1 if the distribution function is different from a FD distribution with temperature (4/11)^(1/3) T_gamma.
+    */
+    /** Thomas: Okay, for massless boson, the initial conditions for the zeroth order distribution has to be found by shooting
+        since it will not only depend on the value today but also on the energy transfer to the massless species during the background
+        evolution. The neccessary machinery is already in place for this, but we may want to write Omega0_inudr like we do for
+        decaying cdm. Then Omega0_inudr will be the combined energy density in this sector.
+    */
+    // pba->N_inu = N_inu;
+    /*Isabel: Still have to fix that default values are used if no vlaue is found in ini-file. Is there an equivalent of "class_read_list_of_doubles_or_default", but not for lists?   */
+    /*Thomas: There is a function input_defaults() that sets all standard values before this function is run. */
 
-      /* contribution of all species: */
-      pba->Omega0_inu_tot = pba->N_inu*7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
+    /* read G_massive and T_inu*/
+    class_read_double("G_massive",pba->G_massive);
+    class_read_double("T_inu",pba->T_inu);
 
-  } 
+    /* Isabel: For the massless case we need to read in tables of background distribution function, see ncdm */
+    /* Thomas: For NCDM we needed the call here in order to relate mass and Omega. For inu it is better to have
+       this call in the background module. But we will see later. */
+    class_call(background_inu_init(ppr,pba),pba->error_message,errmsg);
 
- Omega_tot += pba->Omega0_inu_tot;
+  }
+
+  Omega_tot += pba->Omega0_inu;
 
 
   /* Omega_0_k (effective fractional density of curvature) */
@@ -2526,8 +2555,7 @@ int input_read_parameters(
   class_read_int("l_max_ur",ppr->l_max_ur);
   if (pba->N_ncdm>0)
     class_read_int("l_max_ncdm",ppr->l_max_ncdm);
-  if (pba->N_inu>0)
-    class_read_int("l_max_inu",ppr->l_max_inu);
+  class_read_int("l_max_inu",ppr->l_max_inu);
   class_read_int("l_max_g_ten",ppr->l_max_g_ten);
   class_read_int("l_max_pol_g_ten",ppr->l_max_pol_g_ten);
   class_read_double("curvature_ini",ppr->curvature_ini);
@@ -2788,17 +2816,9 @@ int input_default_params(
   pba->ncdm_psd_parameters = NULL;
   pba->ncdm_psd_files = NULL;
 
-  pba->N_inu = 0;
-  pba->Omega0_inu_tot = 0.0; 
-  pba->T_inu_default = 0.71611; 
-  pba->T_inu = 0.0;
-  pba->T0_inu_default = 0.71611*2.7255; 
-  pba->T0_inu = 0.0;
+  pba->Omega0_inu = 0.0;
+  pba->T_inu = pow(4./11.,1./3.);
   pba->G_massive = 0.0;
-  pba->deg_inu_default = 1.;
-  pba->deg_inu = 0.0;
-  pba->inu_psd_parameters = 0.0;
-  pba->inu_psd_files = 0.0;
 
   pba->Omega0_scf = 0.; /* Scalar field defaults */
   pba->attractor_ic_scf = _TRUE_;
@@ -2812,7 +2832,7 @@ int input_default_params(
   pba->Omega0_k = 0.;
   pba->K = 0.;
   pba->sgnK = 0;
-  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr -pba->Omega0_inu_tot;
+  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr -pba->Omega0_inu;
   pba->Omega0_fld = 0.;
   pba->a_today = 1.;
   pba->w0_fld=-1.;

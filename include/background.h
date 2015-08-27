@@ -113,22 +113,11 @@ struct background
   /* end of parameters for tabulated ncdm p-s-d */
 
 
-  int N_inu;                          /**< Number of inu species */
-  double Omega0_inu, Omega0_inu_tot;   /** Omega0_inu for one and for all inu species */
+  double Omega0_inu;                  /** Omega0_inu for inu species */
   double G_massive;                      /** G_massive is defined below eq. (6.6) in astro-ph/1409.1577 and includes the coupling strength as well as the scalar mass. The only difference is that the a^4 is not included. */
 
   /* the following parameters help to define the analytical inu phase space distributions (p-s-d) */
-  double T_inu,T_inu_default;       /**< list of 1st parameters in
-					     p-s-d of non-cold relics:
-					     relative temperature
-					     T_inu/T_gamma; and its
-					     default value */
-  double T0_inu, T0_inu_default;                      /** current temperature of inu species */
-  double deg_inu, deg_inu_default;   /**<vector of degeneracy parameters in factor
-                                             of p-s-d: 1 for one family of neutrinos
-                                             (= one neutrino plus its anti-neutrino,
-                                             total g*=1+1=2, so deg = 0.5 g*); and its
-					     default value */
+  double T_inu;       /**< relative temperature T_inu/T_gamma */
   double inu_psd_parameters;         /**< list of parameters for specifying/modifying
                                              inu p.s.d.'s, to be cutomized for given model
                                              (could be e.g. mixing angles) */
@@ -511,7 +500,7 @@ extern "C" {
                              double * n,
 		             double * rho,
                              double * p,
-                             double * drho_dM 
+                             double * drho_dM
                              );
 
   int background_solve(
