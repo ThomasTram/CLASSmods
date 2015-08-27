@@ -7668,7 +7668,7 @@ int perturb_derivs(double tau,
         /** -----> define intermediate quantitites */
 
         q = pba->q_inu[index_q];
-        dlnf0_dlnq = -q;//pba->dlnf0_dlnq_inu[index_q];
+        dlnf0_dlnq = pba->dlnf0_dlnq_inu[index_q];
         G_massive= pba->G_massive;
 
         /** -----> inu density for given momentum bin */
