@@ -112,6 +112,34 @@ struct background
   char * ncdm_psd_files;                /**< list of filenames for tabulated p-s-d */
   /* end of parameters for tabulated ncdm p-s-d */
 
+
+  int N_inu;                          /**< Number of inu species */
+  double Omega0_inu, Omega0_inu_tot;   /** Omega0_inu for one and for all inu species */
+  double G_massive;                      /** G_massive is defined below eq. (6.6) in astro-ph/1409.1577 and includes the coupling strength as well as the scalar mass. The only difference is that the a^4 is not included. */
+
+  /* the following parameters help to define the analytical inu phase space distributions (p-s-d) */
+  double T_inu,T_inu_default;       /**< list of 1st parameters in
+					     p-s-d of non-cold relics:
+					     relative temperature
+					     T_inu/T_gamma; and its
+					     default value */
+  double T0_inu, T0_inu_default;                      /** current temperature of inu species */
+  double deg_inu, deg_inu_default;   /**<vector of degeneracy parameters in factor
+                                             of p-s-d: 1 for one family of neutrinos
+                                             (= one neutrino plus its anti-neutrino,
+                                             total g*=1+1=2, so deg = 0.5 g*); and its
+					     default value */
+  double inu_psd_parameters;         /**< list of parameters for specifying/modifying
+                                             inu p.s.d.'s, to be cutomized for given model
+                                             (could be e.g. mixing angles) */
+  /* end of parameters for analytical inu p-s-d */
+
+  /* the following parameters help to define tabulated inu p-s-d passed in file */
+  int got_files_inu;                      /**< list of flags for each species, set to true if
+					     p-s-d is passed through file */
+  char inu_psd_files;                /**< list of filenames for tabulated p-s-d */
+  /* end of parameters for tabulated inu p-s-d */
+
   /* rescaled initial value for dcdm density. */
   double Omega_ini_dcdm;
 
@@ -172,6 +200,8 @@ struct background
   int index_bg_rho_ncdm1;     /**< density of first ncdm species (others contiguous) */
   int index_bg_p_ncdm1;       /**< pressure of first ncdm species (others contiguous) */
   int index_bg_pseudo_p_ncdm1;/**< another statistical momentum useful in ncdma approximation */
+
+  int index_bg_rho_inu;     /**< density of first inu species (others contiguous) */
 
   int index_bg_Omega_r;       /**< relativistic density fraction (\f$ \Omega_{\gamma} + \Omega_{\nu r} \f$) */
 
@@ -259,6 +289,7 @@ struct background
   short has_dr;        /**< presence of relativistic decay radiation? */
   short has_scf;       /**< presence of a scalar field? */
   short has_ncdm;      /**< presence of non-cold dark matter? */
+  short has_inu;       /**< presence of relativistic interacting dark matter? */
   short has_lambda;    /**< presence of cosmological constant? */
   short has_fld;       /**< presence of fluid with constant w and cs2? */
   short has_ur;        /**< presence of ultra-relativistic neutrinos/relics? */
@@ -283,6 +314,25 @@ struct background
   double * factor_ncdm; /* List of normalization factors for calculating energy density etc.*/
 
   //@}
+
+/**
+   *@name - arrays related to sampling and integration of inu phase space distributions
+   */
+
+
+  //@{
+
+  double * q_inu_bg;  /* Pointers to vectors of background sampling in q */
+  double * w_inu_bg;  /* Pointers to vectors of corresponding quadrature weights w */
+  double * q_inu;     /* Pointers to vectors of perturbation sampling in q */
+  double * w_inu;     /* Pointers to vectors of corresponding quadrature weights w */
+  double * dlnf0_dlnq_inu; /* Pointers to vectors of logarithmic derivatives of p-s-d */
+  int q_size_inu_bg; /* Size of the q_inu_bg arrays */
+  int q_size_inu;    /* Size of the q_inu arrays */
+  double factor_inu; /* List of normalization factors for calculating energy density etc.*/
+
+  //@}
+
 
   /**
    *@name - some flags needed for calling background functions
@@ -337,6 +387,7 @@ struct background_parameters_for_distributions {
 
   /* Index of current distribution function */
   int n_ncdm;
+  int n_inu;
 
   /* Used for interpolating in file of tabulated p-s-d: */
   int tablesize;
@@ -432,6 +483,36 @@ extern "C" {
 				    struct background *pba,
 					int species
 				    );
+
+ int background_inu_distribution(
+				  void *pba,
+				  double q,
+				  double * f0
+				  );
+
+  int background_inu_test_function(
+				     void *pba,
+				     double q,
+				     double * test
+				     );
+
+  int background_inu_init(
+			    struct precision *ppr,
+			    struct background *pba
+			    );
+
+
+  int background_inu_momenta(
+                             double * qvec,
+                             double * wvec,
+                             int qsize,
+                             double factor,
+                             double z,
+                             double * n,
+		             double * rho,
+                             double * p,
+                             double * drho_dM 
+                             );
 
   int background_solve(
 		       struct precision *ppr,

@@ -565,6 +565,7 @@ int input_read_parameters(
   int flag1,flag2,flag3;
   double param1,param2,param3;
   int N_ncdm=0,n,entries_read;
+  int N_inu=0;
   int int1,fileentries;
   double scf_lambda;
   double fnu_factor;
@@ -591,6 +592,7 @@ int input_read_parameters(
   double sigma_B; /**< Stefan-Boltzmann constant in W/m^2/K^4 = Kg/K^4/s^3 */
 
   double rho_ncdm;
+  double rho_inu;
   double R0,R1,R2,R3,R4;
   double PSR0,PSR1,PSR2,PSR3,PSR4;
   double HSR0,HSR1,HSR2,HSR3,HSR4;
@@ -967,8 +969,39 @@ int input_read_parameters(
       pba->Omega0_ncdm_tot += pba->Omega0_ncdm[n];
       //printf("Adding %g to total Omega..\n",pba->Omega0_ncdm[n]);
     }
-  }
+  } /* end if-ncdm */
+
   Omega_tot += pba->Omega0_ncdm_tot;
+
+  /* Omega_0_inu (ultra-relativistic interacting species) */
+
+  /* read N_inu */
+  class_read_int("N_inu",N_inu);
+   if (N_inu > 0){
+
+      pba->N_inu = N_inu;
+
+/*Isabel: Still have to fix that default values are used if no vlaue is found in ini-file. Is there an equivalent of "class_read_list_of_doubles_or_default", but not for lists?   */
+    
+      /* read G_massive, deg_inu, T0_inu T_inu*/ 
+      class_read_double("G_massive",pba->G_massive);
+      class_read_double("deg_inu",pba->deg_inu);
+      class_read_double("T0_inu",pba->T0_inu);
+      class_read_double("T_inu",pba->T_inu);
+
+   /* Isabel: For the massless case we need to read in tables of background distribution function, see ncdm */
+    class_call(background_inu_init(ppr,pba),pba->error_message,errmsg); 
+              
+      /* contribution of one species: */
+      pba->Omega0_inu= 7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
+
+      /* contribution of all species: */
+      pba->Omega0_inu_tot = pba->N_inu*7./8.*pow(4./11.,4./3.)*pba->Omega0_g; 
+
+  } 
+
+ Omega_tot += pba->Omega0_inu_tot;
+
 
   /* Omega_0_k (effective fractional density of curvature) */
   class_read_double("Omega_k",pba->Omega0_k);
@@ -2493,6 +2526,8 @@ int input_read_parameters(
   class_read_int("l_max_ur",ppr->l_max_ur);
   if (pba->N_ncdm>0)
     class_read_int("l_max_ncdm",ppr->l_max_ncdm);
+  if (pba->N_inu>0)
+    class_read_int("l_max_inu",ppr->l_max_inu);
   class_read_int("l_max_g_ten",ppr->l_max_g_ten);
   class_read_int("l_max_pol_g_ten",ppr->l_max_pol_g_ten);
   class_read_double("curvature_ini",ppr->curvature_ini);
@@ -2753,6 +2788,18 @@ int input_default_params(
   pba->ncdm_psd_parameters = NULL;
   pba->ncdm_psd_files = NULL;
 
+  pba->N_inu = 0;
+  pba->Omega0_inu_tot = 0.0; 
+  pba->T_inu_default = 0.71611; 
+  pba->T_inu = 0.0;
+  pba->T0_inu_default = 0.71611*2.7255; 
+  pba->T0_inu = 0.0;
+  pba->G_massive = 0.0;
+  pba->deg_inu_default = 1.;
+  pba->deg_inu = 0.0;
+  pba->inu_psd_parameters = 0.0;
+  pba->inu_psd_files = 0.0;
+
   pba->Omega0_scf = 0.; /* Scalar field defaults */
   pba->attractor_ic_scf = _TRUE_;
   pba->scf_parameters = NULL;
@@ -2765,7 +2812,7 @@ int input_default_params(
   pba->Omega0_k = 0.;
   pba->K = 0.;
   pba->sgnK = 0;
-  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr;
+  pba->Omega0_lambda = 1.-pba->Omega0_k-pba->Omega0_g-pba->Omega0_ur-pba->Omega0_b-pba->Omega0_cdm-pba->Omega0_ncdm_tot-pba->Omega0_dcdmdr -pba->Omega0_inu_tot;
   pba->Omega0_fld = 0.;
   pba->a_today = 1.;
   pba->w0_fld=-1.;
@@ -2837,6 +2884,7 @@ int input_default_params(
   ppt->tensor_method = tm_massless_approximation;
   ppt->evolve_tensor_ur = _FALSE_;
   ppt->evolve_tensor_ncdm = _FALSE_;
+  ppt->evolve_tensor_inu = _FALSE_;
 
   ppt->has_scalars=_TRUE_;
   ppt->has_vectors=_FALSE_;
@@ -3035,6 +3083,11 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->tol_ncdm_bg = 1.e-5;
   ppr->tol_ncdm_initial_w=1.e-3;
 
+  ppr->tol_inu = 1.e-3;
+  ppr->tol_inu_synchronous = 1.e-3;
+  ppr->tol_inu_newtonian = 1.e-5;
+  ppr->tol_inu_bg = 1.e-5;
+
   /**
    * - parameters related to the thermodynamics
    */
@@ -3125,6 +3178,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->l_max_dr=17;
   ppr->l_max_ur=17;
   ppr->l_max_ncdm=17;
+  ppr->l_max_inu=17;
   ppr->l_max_g_ten=5;
   ppr->l_max_pol_g_ten=5;
 
