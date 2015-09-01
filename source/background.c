@@ -1405,8 +1405,8 @@ int background_inu_init(
     /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_;
   /** This definition will work for now but has to modified in the massless case */
   pba->factor_inu *= pba->Omega0_inu/(7./8.*pow(4./11.,4./3.)*pba->Omega0_g);
-  printf(" ncdm factor: %g\n inu factor: %g\n inu multiply: %g\n",
-         pba->factor_ncdm[0],pba->factor_inu,pba->Omega0_inu/(7./8.*pow(4./11.,4./3.)*pba->Omega0_g));
+  //printf(" ncdm factor: %g\n inu factor: %g\n inu multiply: %g\n",
+  //       pba->factor_ncdm[0],pba->factor_inu,pba->Omega0_inu/(7./8.*pow(4./11.,4./3.)*pba->Omega0_g));
 
   return _SUCCESS_;
 
