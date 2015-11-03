@@ -234,7 +234,7 @@ int input_init(
   enum computation_stage target_cs[] = {cs_thermodynamics, cs_background, cs_background,
                                         cs_background, cs_background, cs_background};
 
-  int input_verbose = 0, int1, aux_flag;
+  int input_verbose = 0, int1, aux_flag, shooting_failed=_FALSE_;
 
   class_read_int("input_verbose",input_verbose);
 
@@ -320,79 +320,15 @@ int input_init(
     double absf,absfmin=1e99;
     if (unknown_parameters_size == 1){
       /* We can do 1 dimensional root finding */
-      /** Here is our guess: */
-      class_call(input_get_guess(&x1, &dxdy, &fzw, errmsg),
-                 errmsg, errmsg);
-      //printf("x1= %g\n",x1);
-      class_call(input_fzerofun_1d(x1,
-                                   &fzw,
-                                   &f1,
-                                   errmsg),
-                 errmsg, errmsg);
-      fevals++;
-      //printf("x1= %g, f1= %g\n",x1,f1);
-      absfmin = fabs(f1);
+      /* If shooting fails, postpone error to background module to play nice with MontePython. */
+      class_call_try(input_find_root(&xzero,
+                                     &fevals,
+                                     &fzw,
+                                     errmsg),
+                     errmsg,
+                     pba->shooting_error,
+                     shooting_failed=_TRUE_);
 
-      dx = 1.5*f1*dxdy;
-
-      /** Do linear hunt for boundaries: */
-      for (iter=1; iter<=25; iter++){
-        //x2 = x1 + search_dir*dx;
-        x2 = x1 - dx;
-
-        for (iter2=1; iter2 <= 3; iter2++) {
-          return_function = input_fzerofun_1d(x2,&fzw,&f2,errmsg);
-          fevals++;
-          //printf("x2= %g, f2= %g\n",x2,f2);
-          //fprintf(stderr,"iter2=%d\n",iter2);
-          if (return_function ==_SUCCESS_) {
-            break;
-          }
-          else if (iter2 < 3) {
-            dx*=0.5;
-            x2 = x1-dx;
-          }
-          else {
-            //fprintf(stderr,"get here\n");
-            class_stop(errmsg,errmsg);
-          }
-        }
-
-        if (f1*f2<0.0){
-          /** root has been bracketed */
-          if (1==0){//(pba->background_verbose > 4){
-            printf("Root has been bracketed after %d iterations: [%g, %g].\n",iter,x1,x2);
-          }
-          break;
-        }
-
-        /** Accept step? */
-        absf = fabs(f2);
-        if (absf<2*absfmin){
-          x1 = x2;
-          f1 = f2;
-          dx *= 3;
-          if (absf < absfmin)
-            absfmin = absf;
-        }
-        else{
-          dx *= 0.1;
-        }
-      }
-
-      /** Find root using Ridders method. (Exchange for bisection if you are old-school.) */
-      func_return = class_fzero_ridder(input_fzerofun_1d,
-                                    x1,
-                                    x2,
-                                    1e-5*MAX(fabs(x1),fabs(x2)),
-                                    &fzw,
-                                    &f1,
-                                    &f2,
-                                    &xzero,
-                                    &fevals,
-				       errmsg);
-
-      background_test_fail(func_return);
       /* Store xzero */
       sprintf(fzw.fc.value[fzw.unknown_parameters_index[0]],"%e",xzero);
       if (input_verbose > 0) {
@@ -415,16 +351,16 @@ int input_init(
                                  errmsg),
                  errmsg, errmsg);
 
-      class_call(fzero_Newton(input_try_unknown_parameters,
-                              x_inout,
-                              dxdF,
-                              unknown_parameters_size,
-                              1e-4,
-                              1e-6,
-                              &fzw,
-                              &fevals,
-                              errmsg),
-                 errmsg,errmsg);
+      class_call_try(fzero_Newton(input_try_unknown_parameters,
+                                  x_inout,
+                                  dxdF,
+                                  unknown_parameters_size,
+                                  1e-4,
+                                  1e-6,
+                                  &fzw,
+                                  &fevals,
+                                  errmsg),
+                     errmsg, pba->shooting_error,shooting_failed=_TRUE_);
 
       if (input_verbose > 0) {
         fprintf(stdout,"Computing unknown input parameters\n");
@@ -465,6 +401,9 @@ int input_init(
                                      errmsg),
                errmsg,
                errmsg);
+
+    /** Set status of shooting: */
+    pba->shooting_failed = shooting_failed;
 
     /* all parameters read in fzw must be considered as read in
        pfc. At the same time the parameters read before in pfc (like
@@ -2663,6 +2602,8 @@ int input_default_params(
   pba->wa_fld=0.;
   pba->cs2_fld=1.;
 
+  pba->shooting_failed = _FALSE_;
+
   /** - thermodynamics structure */
 
   pth->YHe=_BBN_;
@@ -3601,6 +3542,79 @@ int input_get_guess(double *xguess,
 
   /** Deallocate everything allocated by input_read_parameters */
   background_free_input(&ba);
+
+  return _SUCCESS_;
+}
+
+int input_find_root(double *xzero,
+                    int *fevals,
+                    struct fzerofun_workspace *pfzw,
+                    ErrorMsg errmsg){
+  double x1, x2, f1, f2, dxdy, dx;
+  int iter, iter2;
+  int return_function;
+  /** Here is our guess: */
+  class_call(input_get_guess(&x1, &dxdy, pfzw, errmsg),
+             errmsg, errmsg);
+  //      printf("x1= %g\n",x1);
+  class_call(input_fzerofun_1d(x1,
+                               pfzw,
+                               &f1,
+                               errmsg),
+                 errmsg, errmsg);
+  (*fevals)++;
+  //printf("x1= %g, f1= %g\n",x1,f1);
+
+  dx = 1.5*f1*dxdy;
+
+  /** Do linear hunt for boundaries: */
+  for (iter=1; iter<=15; iter++){
+    //x2 = x1 + search_dir*dx;
+    x2 = x1 - dx;
+
+    for (iter2=1; iter2 <= 3; iter2++) {
+      return_function = input_fzerofun_1d(x2,pfzw,&f2,errmsg);
+      (*fevals)++;
+      //printf("x2= %g, f2= %g\n",x2,f2);
+      //fprintf(stderr,"iter2=%d\n",iter2);
+
+      if (return_function ==_SUCCESS_) {
+        break;
+      }
+      else if (iter2 < 3) {
+        dx*=0.5;
+        x2 = x1-dx;
+      }
+      else {
+        //fprintf(stderr,"get here\n");
+        class_stop(errmsg,errmsg);
+      }
+    }
+
+    if (f1*f2<0.0){
+      /** root has been bracketed */
+      if (0==1){
+        printf("Root has been bracketed after %d iterations: [%g, %g].\n",iter,x1,x2);
+      }
+      break;
+    }
+
+    x1 = x2;
+    f1 = f2;
+  }
+
+  /** Find root using Ridders method. (Exchange for bisection if you are old-school.)*/
+  class_call(class_fzero_ridder(input_fzerofun_1d,
+                                x1,
+                                x2,
+                                1e-5*MAX(fabs(x1),fabs(x2)),
+                                pfzw,
+                                &f1,
+                                &f2,
+                                xzero,
+                                fevals,
+                                errmsg),
+             errmsg,errmsg);
 
   return _SUCCESS_;
 }
