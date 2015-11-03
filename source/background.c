@@ -80,6 +80,10 @@
 
 #include "background.h"
 
+int background_test_fail(int status){
+  return status;
+}
+
 /**
  * Background quantities at given conformal time tau.
  *
@@ -334,9 +338,10 @@ int background_functions(
     pvecback[pba->index_bg_phi_prime_scf] = phi_prime; // value of the scalar field phi derivative wrt conformal time
     pvecback[pba->index_bg_V_scf] = V_scf(pba,phi); //V_scf(pba,phi); //write here potential as function of phi
     pvecback[pba->index_bg_dV_scf] = dV_scf(pba,phi); // dV_scf(pba,phi); //potential' as function of phi
+    //printf(" phi=%g, dV=%g, dVanal=%g\n",phi,dV_scf(pba,phi),-1.2247*V_scf(pba,phi));
     pvecback[pba->index_bg_ddV_scf] = ddV_scf(pba,phi); // ddV_scf(pba,phi); //potential'' as function of phi
-    pvecback[pba->index_bg_rho_scf] = (phi_prime*phi_prime/(2*a*a) + V_scf(pba,phi))/3.; // energy of the scalar field. The field units are set automatically by setting the initial conditions
-    pvecback[pba->index_bg_p_scf] =(phi_prime*phi_prime/(2*a*a) - V_scf(pba,phi))/3.; // pressure of the scalar field
+    pvecback[pba->index_bg_rho_scf] = ((1.-2.*pba->scf_veta)*phi_prime*phi_prime/(2*a*a) + V_scf(pba,phi))/3.; // energy of the scalar field. The field units are set automatically by setting the initial conditions
+    pvecback[pba->index_bg_p_scf] =((1.-2.*pba->scf_veta)*phi_prime*phi_prime/(2*a*a) - V_scf(pba,phi))/3.; // pressure of the scalar field
     rho_tot += pvecback[pba->index_bg_rho_scf];
     p_tot += pvecback[pba->index_bg_p_scf];
     //divide relativistic & nonrelativistic (not very meaningful for oscillatory models)
@@ -1664,9 +1669,9 @@ int background_solve(
       printf("     -> parameters: [lambda, alpha, A, B] = \n");
       printf("                    [");
       for (i=0; i<pba->scf_parameters_size-1; i++){
-        printf("%.3f, ",pba->scf_parameters[i]);
+        printf("%g, ",pba->scf_parameters[i]);
       }
-      printf("%.3f]\n",pba->scf_parameters[pba->scf_parameters_size-1]);
+      printf("%g]\n",pba->scf_parameters[pba->scf_parameters_size-1]);
     }
   }
 
@@ -1807,7 +1812,7 @@ int background_initial_conditions(
         sqrt(V_scf(pba,pvecback_integration[pba->index_bi_phi_scf]))*pba->phi_prime_ini_scf;
     }
     else{
-      printf("Not using attractor initial conditions\n");
+      //printf("Not using attractor initial conditions\n");
       /** If no attractor initial conditions are assigned, gets the provided ones */
       pvecback_integration[pba->index_bi_phi_scf] = pba->phi_ini_scf;
       pvecback_integration[pba->index_bi_phi_prime_scf] = pba->phi_prime_ini_scf;
@@ -2043,9 +2048,10 @@ int background_derivs(
   if (pba->has_scf == _TRUE_){
     /** - Scalar field equation: \f$ \phi'' + 2 a H \phi' + a^2 dV = 0 \f$  (note H is wrt cosmic time) */
     dy[pba->index_bi_phi_scf] = y[pba->index_bi_phi_prime_scf];
+    //printf("veta = %g\n",pba->scf_veta);
     dy[pba->index_bi_phi_prime_scf] = - y[pba->index_bi_a]*
       (2*pvecback[pba->index_bg_H]*y[pba->index_bi_phi_prime_scf]
-       + y[pba->index_bi_a]*dV_scf(pba,y[pba->index_bi_phi_scf])) ;
+       + y[pba->index_bi_a]*(1./(1.-2.*pba->scf_veta))*dV_scf(pba,y[pba->index_bi_phi_scf])) ;
   }
 
 
@@ -2082,8 +2088,8 @@ double V_e_scf(struct background *pba,
   //  double scf_alpha  = pba->scf_parameters[1];
   //  double scf_A      = pba->scf_parameters[2];
   //  double scf_B      = pba->scf_parameters[3];
-
-  return  exp(-scf_lambda*phi);
+  double scf_const = pba->scf_parameters[4];
+  return  exp(-scf_lambda*phi)+scf_const;
 }
 
 double dV_e_scf(struct background *pba,
@@ -2094,7 +2100,7 @@ double dV_e_scf(struct background *pba,
   //  double scf_A      = pba->scf_parameters[2];
   //  double scf_B      = pba->scf_parameters[3];
 
-  return -scf_lambda*V_scf(pba,phi);
+  return -scf_lambda*V_e_scf(pba,phi);
 }
 
 double ddV_e_scf(struct background *pba,
@@ -2105,7 +2111,7 @@ double ddV_e_scf(struct background *pba,
   //  double scf_A      = pba->scf_parameters[2];
   //  double scf_B      = pba->scf_parameters[3];
 
-  return pow(-scf_lambda,2)*V_scf(pba,phi);
+  return pow(-scf_lambda,2)*V_e_scf(pba,phi);
 }
 
 
@@ -2124,7 +2130,8 @@ double V_p_scf(
   double scf_A      = pba->scf_parameters[2];
   double scf_B      = pba->scf_parameters[3];
 
-  return  pow(phi - scf_B,  scf_alpha) +  scf_A;
+//  return  pow(phi - scf_B,  scf_alpha) +  scf_A; AP
+  return  scf_A;
 }
 
 double dV_p_scf(
@@ -2136,7 +2143,8 @@ double dV_p_scf(
   //  double scf_A      = pba->scf_parameters[2];
   double scf_B      = pba->scf_parameters[3];
 
-  return   scf_alpha*pow(phi -  scf_B,  scf_alpha - 1);
+  //return   scf_alpha*pow(phi -  scf_B,  scf_alpha - 1); AP
+  return 0.0;
 }
 
 double ddV_p_scf(
@@ -2147,7 +2155,8 @@ double ddV_p_scf(
   //  double scf_A      = pba->scf_parameters[2];
   double scf_B      = pba->scf_parameters[3];
 
-  return  scf_alpha*(scf_alpha - 1.)*pow(phi -  scf_B,  scf_alpha - 2);
+  //return  scf_alpha*(scf_alpha - 1.)*pow(phi -  scf_B,  scf_alpha - 2); AP
+  return 0.0;
 }
 
 /** now the overall potential \f$ V = V_p*V_e \f$
@@ -2162,6 +2171,9 @@ double V_scf(
 double dV_scf(
               struct background *pba,
 	      double phi) {
+	      
+//printf("phi = %g, dVe = %g, Vp = %g, Ve=%g, dVp=%g\n",
+//phi,dV_e_scf(pba,phi),V_p_scf(pba,phi),V_e_scf(pba,phi),dV_p_scf(pba,phi));
   return dV_e_scf(pba,phi)*V_p_scf(pba,phi) + V_e_scf(pba,phi)*dV_p_scf(pba,phi);
 }
 

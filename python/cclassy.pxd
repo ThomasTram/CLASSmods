@@ -37,6 +37,8 @@ cdef extern from "class.h":
         int index_bg_lum_distance
         int index_bg_conf_distance
         int index_bg_H
+        int index_bg_rho_scf
+        int index_bg_p_scf
         short long_info
         short inter_normal
         double T_cmb
@@ -51,11 +53,15 @@ cdef extern from "class.h":
         double Omega0_ncdm_tot
         double Omega0_lambda
         double Omega0_fld
+        double Omega0_scf
         double w0_fld
         double wa_fld
         double cs2_fld
+        double scf_veta
 
         int bt_size
+        double * background_table
+
 
     cdef struct thermo:
         ErrorMsg error_message

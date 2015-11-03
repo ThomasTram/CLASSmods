@@ -133,14 +133,7 @@ cdef class Class:
 
     def empty(self):
         self._pars = {}
-        self.ready=False
-
-    def cleanup(self):
-        if self.ready==False:
-            return True
-        for i in range(len(self._pars)):
-            if self.fc.read[i]==0:
-                del(self._pars[self.fc.name[i]])
+        self.ready = False
 
     # Create an equivalent of the parameter file. Non specified values will be
     # taken at their default (in Class)
@@ -1204,6 +1197,10 @@ cdef class Class:
                 value = self.ba.h*100
             elif name == 'Omega0_lambda' or name == 'Omega_Lambda':
                 value = self.ba.Omega0_lambda
+            elif name == 'Omega0_scf' or name == 'Omega_scf':
+                value = self.ba.Omega0_scf
+            elif name == 'w0_scf':
+                value = self.ba.background_table[(self.ba.bt_size-1)*self.ba.bg_size+self.ba.index_bg_p_scf]/self.ba.background_table[(self.ba.bt_size-1)*self.ba.bg_size+self.ba.index_bg_rho_scf]
             elif name == 'Omega0_fld':
                 value = self.ba.Omega0_fld
             elif name == 'age':
@@ -1222,6 +1219,8 @@ cdef class Class:
             elif name == 'omega_m':
                 value = (self.ba.Omega0_b + self.ba.Omega0_cdm+
                          self.ba.Omega0_ncdm_tot + self.ba.Omega0_dcdm)/self.ba.h**2
+            elif name == 'scf_veta':
+                value = self.ba.scf_veta
             elif name == 'tau_reio':
                 value = self.th.tau_reio
             elif name == 'z_reio':
@@ -1401,7 +1400,8 @@ cdef class Class:
 
         # Compute the derived paramter value and store them
         params = ctx.getData()
-        self.get_current_derived_parameters(data)
+        self.get_current_derived_parameters(
+            data.get_mcmc_parameters(['derived']))
         for elem in data.get_mcmc_parameters(['derived']):
             data.mcmc_parameters[elem]['current'] /= \
                 data.mcmc_parameters[elem]['scale']

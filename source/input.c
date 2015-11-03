@@ -216,6 +216,7 @@ int input_init(
   double x1, f1, x2, f2, xzero;
   int target_indices[_NUM_TARGETS_];
   double *dxdF, *x_inout;
+  int func_return;
 
   char string1[_ARGUMENT_LENGTH_MAX_];
   FILE * param_output;
@@ -316,12 +317,13 @@ int input_init(
       //printf("%d, %d: %s\n",counter,index_target,target_namestrings[index_target]);
     }
 
+    double absf,absfmin=1e99;
     if (unknown_parameters_size == 1){
       /* We can do 1 dimensional root finding */
       /** Here is our guess: */
       class_call(input_get_guess(&x1, &dxdy, &fzw, errmsg),
                  errmsg, errmsg);
-      //      printf("x1= %g\n",x1);
+      //printf("x1= %g\n",x1);
       class_call(input_fzerofun_1d(x1,
                                    &fzw,
                                    &f1,
@@ -329,11 +331,12 @@ int input_init(
                  errmsg, errmsg);
       fevals++;
       //printf("x1= %g, f1= %g\n",x1,f1);
+      absfmin = fabs(f1);
 
       dx = 1.5*f1*dxdy;
 
       /** Do linear hunt for boundaries: */
-      for (iter=1; iter<=15; iter++){
+      for (iter=1; iter<=25; iter++){
         //x2 = x1 + search_dir*dx;
         x2 = x1 - dx;
 
@@ -342,7 +345,6 @@ int input_init(
           fevals++;
           //printf("x2= %g, f2= %g\n",x2,f2);
           //fprintf(stderr,"iter2=%d\n",iter2);
-
           if (return_function ==_SUCCESS_) {
             break;
           }
@@ -358,18 +360,28 @@ int input_init(
 
         if (f1*f2<0.0){
           /** root has been bracketed */
-          if (0==1){//(pba->background_verbose > 4){
+          if (1==0){//(pba->background_verbose > 4){
             printf("Root has been bracketed after %d iterations: [%g, %g].\n",iter,x1,x2);
           }
           break;
         }
 
-        x1 = x2;
-        f1 = f2;
+        /** Accept step? */
+        absf = fabs(f2);
+        if (absf<2*absfmin){
+          x1 = x2;
+          f1 = f2;
+          dx *= 3;
+          if (absf < absfmin)
+            absfmin = absf;
+        }
+        else{
+          dx *= 0.1;
+        }
       }
 
       /** Find root using Ridders method. (Exchange for bisection if you are old-school.) */
-      class_call(class_fzero_ridder(input_fzerofun_1d,
+      func_return = class_fzero_ridder(input_fzerofun_1d,
                                     x1,
                                     x2,
                                     1e-5*MAX(fabs(x1),fabs(x2)),
@@ -378,9 +390,9 @@ int input_init(
                                     &f2,
                                     &xzero,
                                     &fevals,
-                                    errmsg),
-                 errmsg, errmsg);
+				       errmsg);
 
+      background_test_fail(func_return);
       /* Store xzero */
       sprintf(fzw.fc.value[fzw.unknown_parameters_index[0]],"%e",xzero);
       if (input_verbose > 0) {
@@ -967,6 +979,9 @@ int input_read_parameters(
   if (pba->K > 0.) pba->sgnK = 1;
   else if (pba->K < 0.) pba->sgnK = -1;
 
+  double MyOmegaLambda=0.;
+  class_read_double("MyOmegaLambda",MyOmegaLambda);
+
   /* Omega_0_lambda (cosmological constant), Omega0_fld (dark energy fluid),
      Omega0_scf (scalar field) */
   class_call(parser_read_double(pfc,"Omega_Lambda",&param1,&flag1,errmsg),
@@ -995,7 +1010,11 @@ int input_read_parameters(
   */
 
   /** Step 1 */
-  if (flag1 == _TRUE_){
+  if (MyOmegaLambda>0.){
+    pba->Omega0_lambda = MyOmegaLambda;
+    Omega_tot += pba->Omega0_lambda;
+  }
+  else if (flag1 == _TRUE_){
     pba->Omega0_lambda = param1;
     Omega_tot += pba->Omega0_lambda;
   }
@@ -1029,7 +1048,11 @@ int input_read_parameters(
   }
 
   /* Additional SCF parameters: */
+  class_read_double("Omega_scf_debug",pba->Omega0_scf_debug);
+  if (pba->Omega0_scf_debug != 0)
+    pba->Omega0_scf = pba->Omega0_scf_debug;
   if (pba->Omega0_scf != 0.){
+
     /** Read parameters describing scalar field potential */
     class_call(parser_read_list_of_doubles(pfc,
                                            "scf_parameters",
@@ -1043,9 +1066,27 @@ int input_read_parameters(
                errmsg,
                "Tuning index scf_tuning_index = %d is larger than the number of entries %d in scf_parameters. Check your .ini file.",pba->scf_tuning_index,pba->scf_parameters_size);
     /** Assign shooting parameter */
-    class_read_double("scf_shooting_parameter",pba->scf_parameters[pba->scf_tuning_index]);
+    if (pba->Omega0_scf_debug == 0.)
+      class_read_double("scf_shooting_parameter",pba->scf_parameters[pba->scf_tuning_index]);
 
     scf_lambda = pba->scf_parameters[0];
+
+    /** Read coupling parameter to CDM */
+    class_call(parser_read_double(pfc,"scf_veta",&param1,&flag1,errmsg),
+	       errmsg,
+	       errmsg);
+    class_call(parser_read_double(pfc,"scf_bigveta",&param2,&flag2,errmsg),
+	       errmsg,
+	       errmsg);
+    class_test((flag1 == _TRUE_) && (flag2 == _TRUE_),
+	       errmsg,
+	       "In input file, you cannot enter both scf_veta and scf_bigveta, choose one");
+    if (flag1 == _TRUE_)
+      pba->scf_veta = param1;
+    else if (flag2 == _TRUE_)
+      pba->scf_veta = param2*(1.-scf_lambda*scf_lambda/4.5);
+    //printf("scf_veta = %g\n",pba->scf_veta);
+
     if ((abs(scf_lambda) <3.)&&(pba->background_verbose>1))
       printf("lambda = %e <3 won't be tracking (for exp quint) unless overwritten by tuning function\n",scf_lambda);
 
@@ -2603,6 +2644,7 @@ int input_default_params(
   pba->ncdm_psd_files = NULL;
 
   pba->Omega0_scf = 0.; /* Scalar field defaults */
+  pba->Omega0_scf_debug =0.;
   pba->attractor_ic_scf = _TRUE_;
   pba->scf_parameters = NULL;
   pba->scf_parameters_size = 0;
@@ -3192,7 +3234,7 @@ int class_fzero_ridder(int (*func)(double x, void *param, double *y, ErrorMsg er
       s=sqrt(fm*fm-fl*fh);
       if (s == 0.0){
         *xzero = ans;
-        //printf("Success 1\n");
+        printf("Success 1\n");
         return _SUCCESS_;
       }
       xnew=xm+(xm-xl)*((fl >= fh ? 1.0 : -1.0)*fm/s);
@@ -3206,7 +3248,7 @@ int class_fzero_ridder(int (*func)(double x, void *param, double *y, ErrorMsg er
       *fevals = (*fevals)+1;
       if (fnew == 0.0){
         *xzero = ans;
-        //printf("Success 2, ans=%g\n",ans);
+        printf("Success 2, ans=%g\n",ans);
         return _SUCCESS_;
       }
       if (NRSIGN(fm,fnew) != fm) {
@@ -3223,7 +3265,7 @@ int class_fzero_ridder(int (*func)(double x, void *param, double *y, ErrorMsg er
       } else return _FAILURE_;
       if (fabs(xh-xl) <= xtol) {
         *xzero = ans;
-        //        printf("Success 3\n");
+                printf("Success 3\n");
         return _SUCCESS_;
       }
     }
@@ -3514,6 +3556,19 @@ int input_get_guess(double *xguess,
       if (ba.scf_tuning_index == 0){
         xguess[index_guess] = sqrt(3.0/ba.Omega0_scf);
         dxdy[index_guess] = -0.5*sqrt(3.0)*pow(ba.Omega0_scf,-1.5);
+      }
+      if (ba.scf_tuning_index == 2){
+        //xguess[index_guess] = 1e-7*ba.Omega0_scf;
+        //dxdy[index_guess] = 1e-7;
+	/** Works well for positive veta:
+	double xx = MIN(1.44,ba.scf_parameters[ba.scf_tuning_index]+2.0*ba.scf_veta);
+        xguess[index_guess] = 1e-7*(1.0+0.6*pow(sqrt(6.)-xx,-3.6))*ba.Omega0_scf/0.7;
+        dxdy[index_guess] = xguess[index_guess]/ba.Omega0_scf;
+	*/
+	xguess[index_guess] = 3.*ba.Omega0_scf*ba.H0*ba.H0/
+	  (exp(-ba.scf_parameters[0]*ba.scf_parameters[ba.scf_parameters_size-2])+
+	   ba.scf_parameters[4]);
+        dxdy[index_guess] = xguess[index_guess]/ba.Omega0_scf;
       }
       else{
         /* Default: take the passed value as xguess and set dxdy to 1. */
