@@ -487,6 +487,9 @@ struct perturb_workspace
                                  perturbations and their
                                  time-derivatives */
 
+  double * inu_scattering_kernel; 
+  double * dy_scat;
+
   double delta_rho;
   double rho_plus_p_theta;
   double rho_plus_p_shear;
@@ -800,6 +803,30 @@ extern "C" {
 
   int perturb_prepare_output(struct background * pba,
                              struct perturbs * ppt);
+
+
+  int gk_quad2(int function(void * params_for_function, double x, double *fx),
+	    void * params_for_function,
+	    double a,
+	    double b,
+	    int isindefinite,
+            double *I,
+            double *err);
+
+  int gk_adapt2(int f(void *param, double x, double *fx),
+             double xleft,
+             double xright,
+             double *I,
+             double *err,
+             void *param,
+             double rtol,
+             double abstol,
+             int isindefinite);
+
+  double Plx(int l, double x);
+
+  int compute_Zlm(double G_massive, double *Z, int lmax, double *qvec, int size_qvec);
+  
 
 #ifdef __cplusplus
 }

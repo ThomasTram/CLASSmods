@@ -1910,6 +1910,12 @@ int perturb_workspace_init(
   class_alloc(ppw->pvecthermo,pth->th_size*sizeof(double),ppt->error_message);
   class_alloc(ppw->pvecmetric,ppw->mt_size*sizeof(double),ppt->error_message);
 
+  class_alloc(ppw->inu_scattering_kernel,2*(ppr->l_max_inu+1)*pba->q_size_inu*pba->q_size_inu*sizeof(double),ppt->error_message);
+  class_alloc(ppw->dy_scat,(ppr->l_max_inu+1)*sizeof(double),ppt->error_message);
+
+  /** call the function that calculates the integral kernel: */
+  compute_Zlm(pba->G_massive, ppw->inu_scattering_kernel, ppr->l_max_inu, pba->q_inu, pba->q_size_inu);
+
   /** - count number of approximation, initialize their indices, and allocate their flags */
   index_ap=0;
 
@@ -1988,6 +1994,10 @@ int perturb_workspace_free (
   free(ppw->pvecback);
   free(ppw->pvecthermo);
   free(ppw->pvecmetric);
+
+  free(ppw->inu_scattering_kernel) ;
+  free(ppw->dy_scat) ;
+
   if (ppw->ap_size > 0)
     free(ppw->approx);
 
@@ -2004,6 +2014,7 @@ int perturb_workspace_free (
 
   return _SUCCESS_;
 }
+
 
 /**
  * Solve the perturbation evolution for a given mode, initial
@@ -6960,6 +6971,8 @@ int perturb_derivs(double tau,
   double * pvecmetric;
   double * s_l;
   struct perturb_vector * pv;
+  FILE * Zfile;
+  char filename[256];
 
   /* short-cut notations for the perturbations */
   double delta_g=0.,theta_g=0.,shear_g=0.;
@@ -6988,8 +7001,10 @@ int perturb_derivs(double tau,
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
 
   /* for use with interacting neutrinos (inu): */
-  double rho_inu_bg,p_inu_bg;
-  double G_massive, T0;
+  double * dy_scat;
+  double * Z; 
+  double rho_inu_bg,p_inu_bg, G_massive, T0;
+  int index_qpr, index_l, lmax, Nq;
 
 
   /* for use with curvature */
@@ -7653,7 +7668,7 @@ int perturb_derivs(double tau,
 
 /** -> interacting neutrinos (inu) */
     //TBC: curvature in all inu
-/** Isabel: This hierarchy is eq. (6.6) in astro-ph/1409.1577 devided by f0(q). Note the extra-factor of T0 due to rescaling of the momentum q->q/T0. For now, the hierachy only includes the first collision integral. Include the second (integral) term later!!! */
+/** Isabel: This hierarchy is eq. (6.6) in astro-ph/1409.1577 devided by f0(q). */
 
     if (pba->has_inu == _TRUE_) {
 
@@ -7700,6 +7715,41 @@ int perturb_derivs(double tau,
 
         dy[idx+l] = k*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l]
           -40./3.*pow(1/a,4.)*G_massive*q*y[idx+l];
+
+       /** Calculation of the integral term: */
+
+       for(index_qpr=0; index_qpr < pv->q_size_inu; index_qpr++){ 
+	     for(index_l=0; index_l <= pv->l_max_inu; index_l++){
+
+	     Nq = pv->q_size_inu;
+             lmax = pv->l_max_inu;   
+             
+             Z = ppw->inu_scattering_kernel;
+             dy_scat = ppw->dy_scat; 
+
+             dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*y[idx+index_qpr*(lmax+1)+index_l];  
+             }    
+       } 
+
+/*    for (index_l=0; index_l<=pv->l_max_inu; index_l++){
+    sprintf(filename,"ZCLASS_%03d.dat",index_l);
+    //sprintf(filename,"K%c_%03d.dat",mcase,index_l);
+    Zfile = fopen(filename,"w");
+    for(index_q=0; index_q<pv->q_size_inu; index_q++){
+      for(index_qpr=0; index_qpr< pv->q_size_inu; index_qpr++){
+        fprintf(Zfile,"%.16e ", Z[index_q*(pv->l_max_inu+1)*pv->q_size_inu+index_l*pv->q_size_inu+index_qpr]);
+      }
+      fprintf(Zfile,"\n");
+    }
+    fclose(Zfile);
+  } 
+
+      /** Add up integral term: */
+
+      for(l=0; l<=pv->l_max_inu; l++){
+   
+          dy[idx+l] +=  ppw->dy_scat[l] ; 
+      } 
 
         /** -----> jump to next momentum bin or species */
 
@@ -8485,3 +8535,228 @@ int perturb_rsa_delta_and_theta(
   return _SUCCESS_;
 
 }
+
+
+/** Isabel: The following functions are needed to calculate the integral collision term:  */
+
+int Km_integ(void *param, double x, double *fx){
+  double * ptr = param;
+
+  double q, qpr;
+  double P, Qp, Qm;
+  int l;
+
+  q = ptr[0];
+  qpr = ptr[1];
+  l = (int) ptr[2];
+
+  P = sqrt(q*q+qpr*qpr-2*q*qpr*x);
+  Qp = q + qpr;
+  Qm = q - qpr;
+
+   /* Eq. B.14 */
+  *fx = exp(-(Qm+P)/(2.))*pow(Qm*Qm-P*P,2)/(16.*pow(P,5))*(P*P*(3*P*P-2.*P-4.)+Qp*Qp*(P*P+6.*P+12.))*Plx(l,x);
+  
+  return _SUCCESS_;
+}
+
+
+int compute_Zlm(double G_massive, double *Z, int lmax, double *qvec, int size_qvec){
+
+  /** To optimise the convolution integrals later, the best layout for Z is
+      Z[index_qvec*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] */
+
+
+  double q, qpr, ldbl;
+  int index_q, index_qpr, index_l;
+  double param[3];
+  double rtol = 1e-6;
+  double abstol = 1e-12;
+  double I, err;
+  double lastterm;
+
+  for (index_q = 0; index_q<size_qvec; index_q++){
+
+    q = qvec[index_q];
+    param[0] = q;
+
+    for (index_l = 0; index_l <= lmax; index_l++){
+
+      if (index_l == 0)
+        lastterm = 20./9.*q*q*qpr*qpr*exp(-q);
+      if (index_l == 1)
+	lastterm = 10./9.*q*q*qpr*qpr*exp(-q);
+      if (index_l == 2)
+	lastterm = 2./9.*q*q*qpr*qpr*exp(-q);	
+      else
+        lastterm = 0.;
+
+      ldbl = index_l;
+      param[2] = ldbl;
+
+      for (index_qpr = 0; index_qpr<size_qvec; index_qpr++){
+
+        qpr = qvec[index_qpr];
+        param[1] = qpr;
+
+        gk_adapt2(Km_integ, -1, 1, &I, &err, (void *) param, rtol, abstol, _FALSE_);
+        Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] =
+          G_massive*(I-lastterm);
+
+/*        printf("Z[%d\n, %d\n, %d\n]= %g\n", index_qpr, index_l, index_q, Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr]); */
+
+      }
+
+    }
+
+  }
+
+ return _SUCCESS_;
+}
+
+double Plx(int l, double x){
+  double Plm2, Plm1, Pl;
+  int ll;
+  double ldbl;
+  if (l==0)
+    return 1.;
+  if (l==1)
+    return x;
+  if (l>1){
+    Plm2 = 1.;
+    Plm1 = x;
+    for (ll=2; ll<=l; ll++){
+      ldbl = ll;
+      Pl = (2.*ldbl-1.)/ldbl*x*Plm1-(ldbl-1.)/ldbl*Plm2; //corrected here for a factor of 1/ldbl
+      Plm2 = Plm1;
+      Plm1 = Pl;
+    }
+    return Pl;
+  }
+  return 0.;
+}
+
+int gk_adapt2(int f(void *param, double x, double *fx),
+             double xleft,
+             double xright,
+             double *I,
+             double *err,
+             void *param,
+             double rtol,
+             double abstol,
+             int isindefinite){
+
+  double Ileft, Iright, Eleft, Eright;
+  //printf("#");
+
+  gk_quad2(f,
+          param,
+          xleft,
+	  xright,
+	  isindefinite,
+          I,
+          err);
+
+  if ((fabs(*I)<abstol) || (fabs((*err)/(*I)) < rtol)){
+    /* Converged! */
+    return _SUCCESS_;
+  }
+  else{
+    gk_adapt2(f,xleft,0.5*(xleft+xright),&Ileft,&Eleft,param,1.4*rtol,0.5*abstol,isindefinite);
+    gk_adapt2(f,0.5*(xleft+xright),xright,&Iright,&Eright,param,1.4*rtol,0.5*abstol,isindefinite);
+    *I = Ileft+Iright;
+    *err = sqrt(Eleft*Eleft+Eright*Eright);
+    return _SUCCESS_;
+  }
+}
+
+int gk_quad2(int function(void * params_for_function, double x, double *fx),
+	    void * params_for_function,
+	    double a,
+	    double b,
+	    int isindefinite,
+            double *I,
+            double *err){
+  const double z_k[15]={-0.991455371120813,
+			-0.949107912342759,
+			-0.864864423359769,
+			-0.741531185599394,
+			-0.586087235467691,
+			-0.405845151377397,
+			-0.207784955007898,
+			0.0,
+			0.207784955007898,
+			0.405845151377397,
+			0.586087235467691,
+			0.741531185599394,
+			0.864864423359769,
+			0.949107912342759,
+			0.991455371120813};
+  const double w_k[15]={0.022935322010529,
+			0.063092092629979,
+			0.104790010322250,
+			0.140653259715525,
+			0.169004726639267,
+			0.190350578064785,
+			0.204432940075298,
+			0.209482141084728,
+			0.204432940075298,
+			0.190350578064785,
+			0.169004726639267,
+			0.140653259715525,
+			0.104790010322250,
+			0.063092092629979,
+			0.022935322010529};
+  const double w_g[7]={0.129484966168870,
+		       0.279705391489277,
+		       0.381830050505119,
+		       0.417959183673469,
+		       0.381830050505119,
+		       0.279705391489277,
+		       0.129484966168870};
+  int i,j;
+  double x,wg,wk,t,Ik,Ig,y,y2;
+
+  /* 	Loop through abscissas, transform the interval and form the Kronrod
+     15 point estimate of the integral.
+     Every second time we update the Gauss 7 point quadrature estimate. */
+
+  Ik=0.0;
+  Ig=0.0;
+  for (i=0;i<15;i++){
+    /* Transform z into t in interval between a and b: */
+    t = 0.5*(a*(1-z_k[i])+b*(1+z_k[i]));
+    /* Modify weight such that it reflects the linear transformation above: */
+    wk = 0.5*(b-a)*w_k[i];
+    if (isindefinite==_TRUE_){
+      /* Transform t into x in interval between 0 and inf: */
+      x = 1.0/t-1.0;
+      //  printf("%g ",x);
+      /* Modify weight accordingly: */
+      wk = wk/(t*t);
+    }
+    else{
+      x = t;
+    }
+    function(params_for_function,x,&y);
+    /* Update Kronrod integral: */
+    Ik +=wk*y;
+    /* If i is uneven, update Gauss integral: */
+    if ((i%2)==1){
+      j = (i-1)/2;
+      /* Transform weight according to linear transformation: */
+      wg = 0.5*(b-a)*w_g[j];
+      if (isindefinite == _TRUE_){
+        /* Transform weight according to non-linear transformation x = 1/t -1: */
+        wg = wg/(t*t);
+      }
+      /* Update integral: */
+      Ig +=wg*y;
+    }
+  }
+  //  printf("\n");
+  *err = pow(200.*fabs(Ik-Ig),1.5);
+  *I = Ik;
+  return _SUCCESS_;
+}
+
