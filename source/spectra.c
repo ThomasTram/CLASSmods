@@ -1222,7 +1222,8 @@ int spectra_init(
   if ((ppt->has_cls == _FALSE_) &&
       (ppt->has_pk_matter == _FALSE_) &&
       (ppt->has_density_transfers == _FALSE_) &&
-      (ppt->has_velocity_transfers == _FALSE_)) {
+      (ppt->has_velocity_transfers == _FALSE_) &&
+      (ppt->has_spatial_gauge_transfers == _FALSE_)) {
     psp->md_size = 0;
     if (psp->spectra_verbose > 0)
       printf("No spectra requested. Spectra module skipped.\n");
@@ -1255,7 +1256,7 @@ int spectra_init(
 
   /** - deal with P(k,tau) and T_i(k,tau) */
 
-  if ((ppt->has_pk_matter == _TRUE_) || (ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_)) {
+  if ((ppt->has_pk_matter == _TRUE_) || (ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_) || (ppt->has_spatial_gauge_transfers == _TRUE_)) {
 
     class_call(spectra_k_and_tau(pba,ppt,psp),
                psp->error_message,
@@ -1272,7 +1273,7 @@ int spectra_init(
       psp->ln_pk=NULL;
     }
 
-    if ((ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_)) {
+    if ((ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_) || (ppt->has_spatial_gauge_transfers == _TRUE_)) {
 
       class_call(spectra_matter_transfers(pba,ppt,psp),
                  psp->error_message,
@@ -1780,6 +1781,10 @@ int spectra_indices(
   class_define_index(psp->index_tr_theta_dr,ppt->has_source_theta_ur,index_tr,1);
   class_define_index(psp->index_tr_theta_ncdm1,ppt->has_source_theta_ncdm,index_tr,pba->N_ncdm);
   class_define_index(psp->index_tr_theta_tot,ppt->has_velocity_transfers,index_tr,1);
+
+  /* indices for spatial gauge displacement transfer function */
+  class_define_index(psp->index_tr_L,ppt->has_source_L,index_tr,1);
+  class_define_index(psp->index_tr_L_prime,ppt->has_source_L_prime,index_tr,1);
 
   psp->tr_size = index_tr;
 
@@ -3210,6 +3215,23 @@ int spectra_matter_transfers(
 
         }
 
+        /** Store spatial gauge displacement transfer function here */
+
+        if (ppt->has_spatial_gauge_transfers == _TRUE_) {
+
+          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_L] =
+            ppt->sources[index_md]
+            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_L]
+            [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
+
+          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_L_prime] =
+            ppt->sources[index_md]
+            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_L_prime]
+            [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
+
+        }
+
+
       }
     }
   }
@@ -3282,6 +3304,14 @@ int spectra_output_tk_titles(struct background *pba,
       class_store_columntitle(titles,"t__scf",pba->has_scf);
       class_store_columntitle(titles,"t_tot",_TRUE_);
     }
+
+    if (ppt->has_spatial_gauge_transfers == _TRUE_) {
+
+      class_store_columntitle(titles,"L",ppt->has_source_L);
+      class_store_columntitle(titles,"L_prime",ppt->has_source_L_prime);
+
+    }
+
   }
 
   else if (output_format == camb_format) {
@@ -3408,6 +3438,13 @@ int spectra_output_tk_data(
             class_store_double(dataptr,tk[psp->index_tr_theta_dr],ppt->has_source_theta_dr,storeidx);
             class_store_double(dataptr,tk[psp->index_tr_theta_scf],ppt->has_source_theta_scf,storeidx);
             class_store_double(dataptr,tk[psp->index_tr_theta_tot],_TRUE_,storeidx);
+
+          }
+
+          if (ppt->has_spatial_gauge_transfers == _TRUE_) {
+
+            class_store_double(dataptr,tk[psp->index_tr_L],ppt->has_source_L,storeidx);
+            class_store_double(dataptr,tk[psp->index_tr_L_prime],ppt->has_source_L_prime,storeidx);
 
           }
 

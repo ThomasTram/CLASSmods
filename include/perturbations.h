@@ -132,6 +132,7 @@ struct perturbs
   short has_pk_matter;                /**< do we need matter Fourier spectrum? */
   short has_density_transfers;        /**< do we need to output individual matter density transfer functions? */
   short has_velocity_transfers;       /**< do we need to output individual matter velocity transfer functions? */
+  short has_spatial_gauge_transfers;       /**< do we need to output the transfer function for a spatial gauge transformation? */
 
   short has_nl_corrections_based_on_delta_m;  /**< do we want to compute non-linear corrections with an algorithm relying on delta_m (like halofit)? */
 
@@ -254,6 +255,8 @@ struct perturbs
   short has_source_phi_prime;    /**< do we need source for metric fluctuation phi'? */
   short has_source_phi_plus_psi; /**< do we need source for metric fluctuation (phi+psi)? */
   short has_source_psi;          /**< do we need source for metric fluctuation psi? */
+  short has_source_L;          /**< do we need source for spatial gauge transform L? */
+  short has_source_L_prime;          /**< do we need source for spatial gauge transform L'? */
 
   /* remember that the temperature source function includes three
      terms that we call 0,1,2 (since the strategy in class v > 1.7 is
@@ -291,6 +294,8 @@ struct perturbs
   int index_tp_phi_prime;    /**< index value for metric fluctuation phi' */
   int index_tp_phi_plus_psi; /**< index value for metric fluctuation phi+psi */
   int index_tp_psi;          /**< index value for metric fluctuation psi */
+  int index_tp_L;            /**< index value for spatial gauge displacement L */
+  int index_tp_L_prime;      /**< index value for derivative of spatial gauge displacement L */
 
   int * tp_size; /**< number of types tp_size[index_md] included in computation for each mode */
 
@@ -414,6 +419,9 @@ struct perturb_vector
 
   int index_pt_eta;       /**< synchronous gauge metric perturbation eta*/
   int index_pt_phi;
+  int index_pt_L;            /**< index value for spatial gauge displacement L */
+  int index_pt_L_prime;      /**< index value for derivative of spatial gauge displacement L */
+
   int index_pt_hv_prime;  /**< vector metric perturbation h_v' in synchronous gauge */
   int index_pt_V;         /**< vector metric perturbation V in Newtonian gauge */
 

@@ -567,6 +567,8 @@ int perturb_indices_of_perturbs(
   ppt->has_source_phi_prime = _FALSE_;
   ppt->has_source_phi_plus_psi = _FALSE_;
   ppt->has_source_psi = _FALSE_;
+  ppt->has_source_L = _FALSE_;
+  ppt->has_source_L_prime = _FALSE_;
 
   /** - source flags and indices, for sources that all modes have in
       common (temperature, polarization, ...). For temperature, the
@@ -666,6 +668,12 @@ int perturb_indices_of_perturbs(
           ppt->has_source_theta_ncdm = _TRUE_;
       }
 
+      if (ppt->has_spatial_gauge_transfers == _TRUE_) {
+        ppt->has_source_L = _TRUE_;
+        ppt->has_source_L_prime = _TRUE_;
+      }
+
+
       if (ppt->has_cl_number_count == _TRUE_) {
         ppt->has_lss = _TRUE_;
         if (ppt->has_nc_density == _TRUE_) {
@@ -712,6 +720,9 @@ int perturb_indices_of_perturbs(
       class_define_index(ppt->index_tp_phi_prime,  ppt->has_source_phi_prime, index_type,1);
       class_define_index(ppt->index_tp_phi_plus_psi,ppt->has_source_phi_plus_psi,index_type,1);
       class_define_index(ppt->index_tp_psi,        ppt->has_source_psi,       index_type,1);
+      class_define_index(ppt->index_tp_L,          ppt->has_source_L,       index_type,1);
+      class_define_index(ppt->index_tp_L_prime,    ppt->has_source_L_prime, index_type,1);
+
       ppt->tp_size[index_md] = index_type;
 
       class_test(index_type == 0,
@@ -2464,6 +2475,9 @@ int perturb_prepare_output(struct background * pba,
       /* Scalar field scf */
       class_store_columntitle(ppt->scalar_titles, "delta_scf", pba->has_scf);
       class_store_columntitle(ppt->scalar_titles, "theta_scf", pba->has_scf);
+      /* Spatial gauge displacement L */
+      class_store_columntitle(ppt->scalar_titles, "L", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "L_prime", ppt->has_spatial_gauge_transfers);
 
       ppt->number_of_scalar_titles =
         get_number_of_titles(ppt->scalar_titles);
@@ -3083,6 +3097,10 @@ int perturb_vector_init(
        phi) */
     class_define_index(ppv->index_pt_phi,ppt->gauge == newtonian,index_pt,1);
 
+    /* spatial gauge displacement L and derivative L'*/
+    class_define_index(ppv->index_pt_L,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+    class_define_index(ppv->index_pt_L_prime,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+
   }
 
   if (_vectors_) {
@@ -3442,6 +3460,15 @@ int perturb_vector_init(
       if (ppt->gauge == newtonian)
         ppv->y[ppv->index_pt_phi] =
           ppw->pv->y[ppw->pv->index_pt_phi];
+
+      if (ppt->has_spatial_gauge_transfers == _TRUE_){
+        ppv->y[ppv->index_pt_L] =
+          ppw->pv->y[ppw->pv->index_pt_L];
+        ppv->y[ppv->index_pt_L_prime] =
+          ppw->pv->y[ppw->pv->index_pt_L_prime];
+      }
+
+
 
       /* -- case of switching off tight coupling
          approximation. Provide correct initial conditions to new set
@@ -4447,6 +4474,13 @@ int perturb_initial_conditions(struct precision * ppr,
       ppw->pv->y[ppw->pv->index_pt_F0_dr+2] = 2.*shear_ur*f_dr;
 
       ppw->pv->y[ppw->pv->index_pt_F0_dr+3] = l3_ur*f_dr;
+
+    }
+
+    if (ppt->has_spatial_gauge_transfers == _TRUE_) {
+
+      ppw->pv->y[ppw->pv->index_pt_L] = 1.0; //TBC
+      ppw->pv->y[ppw->pv->index_pt_L_prime] = 0.0; //TBC
 
     }
 
@@ -6041,6 +6075,15 @@ int perturb_sources(
         _set_source_(index_type) = ppw->theta_ncdm[index_type - ppt->index_tp_theta_ncdm1];
       }
     }
+
+    /* Spatial gauge displacement and derivative */
+    if (ppt->has_source_L == _TRUE_) {
+      _set_source_(ppt->index_tp_L) = y[ppw->pv->index_pt_L];
+    }
+    if (ppt->has_source_L_prime == _TRUE_) {
+      _set_source_(ppt->index_tp_L_prime) = y[ppw->pv->index_pt_L_prime];
+    }
+
   }
 
   /* tensors */
@@ -6388,6 +6431,10 @@ int perturb_print_variables(double tau,
     /* Scalar field scf*/
     class_store_double(dataptr, delta_scf, pba->has_scf, storeidx);
     class_store_double(dataptr, theta_scf, pba->has_scf, storeidx);
+    /* Spatial gauge displacement L */
+    class_store_double(dataptr, y[ppw->pv->index_pt_L], ppt->has_spatial_gauge_transfers,storeidx);
+    class_store_double(dataptr, y[ppw->pv->index_pt_L_prime], ppt->has_spatial_gauge_transfers,storeidx);
+
 
     //fprintf(ppw->perturb_output_file,"\n");
 
@@ -7254,6 +7301,15 @@ int perturb_derivs(double tau,
     if (ppt->gauge == newtonian) {
 
       dy[pv->index_pt_phi] = pvecmetric[ppw->index_mt_phi_prime];
+
+    }
+
+    /** -> spatial gauge displacement */
+
+    if (ppt->has_spatial_gauge_transfers == _TRUE_) {
+
+      dy[pv->index_pt_L] = y[pv->index_pt_L_prime]; //TBC
+      dy[pv->index_pt_L_prime] = -1e-4*y[pv->index_pt_L]; //TBC
 
     }
 
