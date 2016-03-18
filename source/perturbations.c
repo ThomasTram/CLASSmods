@@ -4479,8 +4479,8 @@ int perturb_initial_conditions(struct precision * ppr,
 
     if (ppt->has_spatial_gauge_transfers == _TRUE_) {
 
-      ppw->pv->y[ppw->pv->index_pt_L] = 1.0; //TBC
-      ppw->pv->y[ppw->pv->index_pt_L_prime] = 0.0; //TBC
+      ppw->pv->y[ppw->pv->index_pt_L] = 0.0; 
+      ppw->pv->y[ppw->pv->index_pt_L_prime] = 0.0; 
 
     }
 
@@ -7307,9 +7307,18 @@ int perturb_derivs(double tau,
     /** -> spatial gauge displacement */
 
     if (ppt->has_spatial_gauge_transfers == _TRUE_) {
-
-      dy[pv->index_pt_L] = y[pv->index_pt_L_prime]; //TBC
-      dy[pv->index_pt_L_prime] = -1e-4*y[pv->index_pt_L]; //TBC
+	  double a_init = 0.001;
+	  double a_width = 0.0001;
+	  double a_end = a_init+a_width; 
+      dy[pv->index_pt_L] = y[pv->index_pt_L_prime]; 
+      dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a * a * (ppw->pvecback[pba->index_bg_rho_cdm]+ppw->pvecback[pba->index_bg_rho_b])*y[pv->index_pt_L]
+		  // dark matter growth function 
+		   - ( a > a_end ? 1. :  (a>a_init ? (a - a_init)/(a_end- a_init) : 0. ) ) * 4.5 * a * a / k * ppw->rho_plus_p_shear // anisotropic stress source 
+		   - ( a > a_end ? 1. :  (a>a_init ? (a - a_init)/(a_end- a_init) : 0. ) ) * 1.5 * a * a / k *(  //density of other species
+				    0. * ppw->pvecback[pba->index_bg_rho_ur]*(y[pv->index_pt_delta_ur] + 4. * a_prime_over_a * y[pv->index_pt_theta_ur]/k/k)  //ur
+				       + ppw->pvecback[pba->index_bg_rho_g] *(y[pv->index_pt_delta_g]  + 4. * a_prime_over_a * y[pv->index_pt_theta_g] /k/k )) //photons
+		   // + 3. / k * (d/deta + HC) ( HC A)   // spatial gauge source
+			   ; 
 
     }
 
