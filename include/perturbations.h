@@ -486,7 +486,7 @@ struct perturb_workspace
   struct perturb_vector * pv; /**< pointer to vector of integrated
                                  perturbations and their
                                  time-derivatives */
-
+  /** NEW: **/
   double * inu_scattering_kernel; 
   double * dy_scat;
 
@@ -804,7 +804,7 @@ extern "C" {
   int perturb_prepare_output(struct background * pba,
                              struct perturbs * ppt);
 
-
+/** NEW: **/
   int gk_quad2(int function(void * params_for_function, double x, double *fx),
 	    void * params_for_function,
 	    double a,
@@ -824,8 +824,10 @@ extern "C" {
              int isindefinite);
 
   double Plx(int l, double x);
+  
+  int Km_integ(void *param, double x, double *fx);
 
-  int compute_Zlm(double G_massive, double *Z, int lmax, double *qvec, int size_qvec);
+  int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec);
   
 
 #ifdef __cplusplus

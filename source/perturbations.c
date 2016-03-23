@@ -1824,6 +1824,8 @@ int perturb_workspace_init(
   int index_mt=0;
   int index_ap;
   int l;
+  double *dataptr;
+  int storeidx;
 
   /** Compute maximum l_max for any multipole */;
   if (_scalars_) {
@@ -1910,11 +1912,13 @@ int perturb_workspace_init(
   class_alloc(ppw->pvecthermo,pth->th_size*sizeof(double),ppt->error_message);
   class_alloc(ppw->pvecmetric,ppw->mt_size*sizeof(double),ppt->error_message);
 
-  class_alloc(ppw->inu_scattering_kernel,2*(ppr->l_max_inu+1)*pba->q_size_inu*pba->q_size_inu*sizeof(double),ppt->error_message);
-  class_alloc(ppw->dy_scat,(ppr->l_max_inu+1)*sizeof(double),ppt->error_message);
+  /** NEW: **/
+  class_alloc(ppw->inu_scattering_kernel,(ppr->l_max_inu+1)*pba->q_size_inu*pba->q_size_inu*sizeof(double),ppt->error_message);
+  class_alloc(ppw->dy_scat,(pba->q_size_inu)*(ppr->l_max_inu+1)*sizeof(double),ppt->error_message);
 
-  /** call the function that calculates the integral kernel: */
-  compute_Zlm(pba->G_massive, ppw->inu_scattering_kernel, ppr->l_max_inu, pba->q_inu, pba->q_size_inu);
+  /** NEW: call the function that calculates the integral kernel: */
+  class_call(compute_Zlm(ppw->inu_scattering_kernel, ppr->l_max_inu, pba->q_inu, pba->q_size_inu),ppt->error_message,
+             ppt->error_message); 
 
   /** - count number of approximation, initialize their indices, and allocate their flags */
   index_ap=0;
@@ -1995,6 +1999,7 @@ int perturb_workspace_free (
   free(ppw->pvecthermo);
   free(ppw->pvecmetric);
 
+  // NEW:
   free(ppw->inu_scattering_kernel) ;
   free(ppw->dy_scat) ;
 
@@ -4045,6 +4050,7 @@ int perturb_vector_free(
 
   if (pv->l_max_ncdm != NULL) free(pv->l_max_ncdm);
   if (pv->q_size_ncdm != NULL) free(pv->q_size_ncdm);
+
   free(pv->y);
   free(pv->dy);
   free(pv->used_in_sources);
@@ -6997,7 +7003,7 @@ int perturb_derivs(double tau,
 
   /* for use with non-cold dark matter (ncdm): */
   int index_q,n_ncdm,idx;
-  double q,epsilon,dlnf0_dlnq,qk_div_epsilon;
+  double q,epsilon,dlnf0_dlnq,qk_div_epsilon,qpr;
   double rho_ncdm_bg,p_ncdm_bg,pseudo_p_ncdm,w_ncdm,ca2_ncdm,ceff2_ncdm=0.,cvis2_ncdm=0.;
 
   /* for use with interacting neutrinos (inu): */
@@ -7679,7 +7685,7 @@ int perturb_derivs(double tau,
       /** -----> loop over momentum */
 
       for (index_q=0; index_q < pv->q_size_inu; index_q++) {
-
+     
         /** -----> define intermediate quantitites */
 
         q = pba->q_inu[index_q];
@@ -7710,46 +7716,35 @@ int perturb_derivs(double tau,
             -40./3.*pow(1/a,4.)*G_massive*q*y[idx+l];
         }
 
+
         /** -----> inu lmax for given momentum bin (truncation as in Ma and Bertschinger)
             but with curvature taken into account a la arXiv:1305.3261 */
 
-        dy[idx+l] = k*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l]
-          -40./3.*pow(1/a,4.)*G_massive*q*y[idx+l];
+         dy[idx+l] = k*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l]
+                -40./3.*pow(1/a,4.)*G_massive*q*y[idx+l];
 
-       /** Calculation of the integral term: */
 
-       for(index_qpr=0; index_qpr < pv->q_size_inu; index_qpr++){ 
+       /** NEW: Calculation of the integral term: */
+
+      for(index_qpr=0; index_qpr < pv->q_size_inu; index_qpr++){ 
 	     for(index_l=0; index_l <= pv->l_max_inu; index_l++){
-
+            
 	     Nq = pv->q_size_inu;
              lmax = pv->l_max_inu;   
              
              Z = ppw->inu_scattering_kernel;
              dy_scat = ppw->dy_scat; 
 
-             dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*y[idx+index_qpr*(lmax+1)+index_l];  
+             dy_scat[index_q*(lmax+1)+index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]; 
              }    
        } 
 
-/*    for (index_l=0; index_l<=pv->l_max_inu; index_l++){
-    sprintf(filename,"ZCLASS_%03d.dat",index_l);
-    //sprintf(filename,"K%c_%03d.dat",mcase,index_l);
-    Zfile = fopen(filename,"w");
-    for(index_q=0; index_q<pv->q_size_inu; index_q++){
-      for(index_qpr=0; index_qpr< pv->q_size_inu; index_qpr++){
-        fprintf(Zfile,"%.16e ", Z[index_q*(pv->l_max_inu+1)*pv->q_size_inu+index_l*pv->q_size_inu+index_qpr]);
-      }
-      fprintf(Zfile,"\n");
-    }
-    fclose(Zfile);
-  } 
-
       /** Add up integral term: */
 
-      for(l=0; l<=pv->l_max_inu; l++){
-   
-          dy[idx+l] +=  ppw->dy_scat[l] ; 
-      } 
+     for(l=0; l<=pv->l_max_inu; l++){
+
+        dy[idx+l] += G_massive*pow(1/a,4.)*ppw->dy_scat[index_q*(pv->l_max_inu+1)+l];
+     } 
 
         /** -----> jump to next momentum bin or species */
 
@@ -8537,7 +8532,7 @@ int perturb_rsa_delta_and_theta(
 }
 
 
-/** Isabel: The following functions are needed to calculate the integral collision term:  */
+/** NEW: The following functions are needed to calculate the integral collision term:  */
 
 int Km_integ(void *param, double x, double *fx){
   double * ptr = param;
@@ -8561,11 +8556,10 @@ int Km_integ(void *param, double x, double *fx){
 }
 
 
-int compute_Zlm(double G_massive, double *Z, int lmax, double *qvec, int size_qvec){
+int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec){
 
   /** To optimise the convolution integrals later, the best layout for Z is
       Z[index_qvec*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] */
-
 
   double q, qpr, ldbl;
   int index_q, index_qpr, index_l;
@@ -8600,8 +8594,9 @@ int compute_Zlm(double G_massive, double *Z, int lmax, double *qvec, int size_qv
         param[1] = qpr;
 
         gk_adapt2(Km_integ, -1, 1, &I, &err, (void *) param, rtol, abstol, _FALSE_);
-        Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] =
-          G_massive*(I-lastterm);
+
+        /** Isabel: Have to devide by f0(q) and multiply by f0(qpr) here because in the paper: f=f0+F (eq. 3.4) and in CLASS: f= f0(1+F). **/
+        Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] = qpr/q*(I-lastterm)*exp(q-qpr);
 
 /*        printf("Z[%d\n, %d\n, %d\n]= %g\n", index_qpr, index_l, index_q, Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr]); */
 
