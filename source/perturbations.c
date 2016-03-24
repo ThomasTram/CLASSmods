@@ -1914,7 +1914,7 @@ int perturb_workspace_init(
 
   /** NEW: **/
   class_alloc(ppw->inu_scattering_kernel,(ppr->l_max_inu+1)*pba->q_size_inu*pba->q_size_inu*sizeof(double),ppt->error_message);
-  class_alloc(ppw->dy_scat,(pba->q_size_inu)*(ppr->l_max_inu+1)*sizeof(double),ppt->error_message);
+  class_alloc(ppw->dy_scat,(ppr->l_max_inu+1)*sizeof(double),ppt->error_message);
 
   /** NEW: call the function that calculates the integral kernel: */
   class_call(compute_Zlm(ppw->inu_scattering_kernel, ppr->l_max_inu, pba->q_inu, pba->q_size_inu),ppt->error_message,
@@ -7720,31 +7720,32 @@ int perturb_derivs(double tau,
         /** -----> inu lmax for given momentum bin (truncation as in Ma and Bertschinger)
             but with curvature taken into account a la arXiv:1305.3261 */
 
-         dy[idx+l] = k*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l]
-                -40./3.*pow(1/a,4.)*G_massive*q*y[idx+l];
+        dy[idx+l] = k*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l]
+          -40./3.*pow(1/a,4.)*G_massive*q*y[idx+l];
 
 
-       /** NEW: Calculation of the integral term: */
+        /** NEW: Calculation of the integral term: */
+        Nq = pv->q_size_inu;
+        lmax = pv->l_max_inu;
+        Z = ppw->inu_scattering_kernel;
+        dy_scat = ppw->dy_scat;
 
-      for(index_qpr=0; index_qpr < pv->q_size_inu; index_qpr++){ 
-	     for(index_l=0; index_l <= pv->l_max_inu; index_l++){
-            
-	     Nq = pv->q_size_inu;
-             lmax = pv->l_max_inu;   
-             
-             Z = ppw->inu_scattering_kernel;
-             dy_scat = ppw->dy_scat; 
+        /** NEW2: dy_scat can be reused for each momentum bin index_q, so it should just be
+            a 1d array of length lmax+1. It has to be zeroed before adding the kernel Z*y. */
+        for(index_l=0; index_l <= lmax; index_l++){
+          dy_scat[index_l] = 0.0;
+          for(index_qpr=0; index_qpr <Nq; index_qpr++){
+            dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*
+              y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l];
+          }
+        }
 
-             dy_scat[index_q*(lmax+1)+index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]; 
-             }    
-       } 
+        /** Add up integral term: */
 
-      /** Add up integral term: */
+        for(l=0; l<=pv->l_max_inu; l++){
 
-     for(l=0; l<=pv->l_max_inu; l++){
-
-        dy[idx+l] += G_massive*pow(1/a,4.)*ppw->dy_scat[index_q*(pv->l_max_inu+1)+l];
-     } 
+          dy[idx+l] += G_massive*pow(1/a,4.)*ppw->dy_scat[l];
+        }
 
         /** -----> jump to next momentum bin or species */
 
