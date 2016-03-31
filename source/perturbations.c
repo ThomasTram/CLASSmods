@@ -5,7 +5,7 @@
  * Deals with the perturbation evolution.
  * This mdule has two purposes:
  *
- * - at the beginning, to initialize the perturbations, i.e. to
+ * - at the beginning, to inindex_pt_HCA_nbitialize the perturbations, i.e. to
  * integrate the perturbation equations, and store temporarily the terms
  * contributing to the source functions as a function of conformal
  * time. Then, to perform a few manipulations of these terms in order to
@@ -3100,6 +3100,10 @@ int perturb_vector_init(
     /* spatial gauge displacement L and derivative L'*/
     class_define_index(ppv->index_pt_L,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
     class_define_index(ppv->index_pt_L_prime,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+    class_define_index(ppv->index_pt_HCA_nb,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+    class_define_index(ppv->index_pt_HCtheta_p,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+	class_define_index(ppv->index_pt_delta_N,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+	class_define_index(ppv->index_pt_theta_N,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
 
   }
 
@@ -3466,6 +3470,14 @@ int perturb_vector_init(
           ppw->pv->y[ppw->pv->index_pt_L];
         ppv->y[ppv->index_pt_L_prime] =
           ppw->pv->y[ppw->pv->index_pt_L_prime];
+        ppv->y[ppv->index_pt_HCA_nb] =
+          ppw->pv->y[ppw->pv->index_pt_HCA_nb];
+        ppv->y[ppv->index_pt_HCtheta_p] =
+          ppw->pv->y[ppw->pv->index_pt_HCtheta_p];
+        ppv->y[ppv->index_pt_delta_N] =
+          ppw->pv->y[ppw->pv->index_pt_delta_N];
+        ppv->y[ppv->index_pt_theta_N] =
+          ppw->pv->y[ppw->pv->index_pt_theta_N];
       }
 
 
@@ -4480,7 +4492,12 @@ int perturb_initial_conditions(struct precision * ppr,
     if (ppt->has_spatial_gauge_transfers == _TRUE_) {
 
       ppw->pv->y[ppw->pv->index_pt_L] = 0.0; 
+	  ppw->pv->y[ppw->pv->index_pt_HCA_nb] = 0.0; 
+	  ppw->pv->y[ppw->pv->index_pt_HCtheta_p] = 0.0; 
       ppw->pv->y[ppw->pv->index_pt_L_prime] = 0.0; 
+
+	  ppw->pv->y[ppw->pv->index_pt_delta_N] = 0.0; 
+	  ppw->pv->y[ppw->pv->index_pt_theta_N] = 0.0; 
 
     }
 
@@ -6078,10 +6095,22 @@ int perturb_sources(
 
     /* Spatial gauge displacement and derivative */
     if (ppt->has_source_L == _TRUE_) {
-      _set_source_(ppt->index_tp_L) = y[ppw->pv->index_pt_L];
+  	 
+      _set_source_(ppt->index_tp_L) =  y[ppw->pv->index_pt_L];
     }
     if (ppt->has_source_L_prime == _TRUE_) {
-      _set_source_(ppt->index_tp_L_prime) = y[ppw->pv->index_pt_L_prime];
+    	  double rho_plus_p_tot =4./3.* ppw->pvecback[pba->index_bg_rho_g] + 4./3.*ppw->pvecback[pba->index_bg_rho_ur]+ppw->pvecback[pba->index_bg_rho_cdm]+ppw->pvecback[pba->index_bg_rho_b];
+ 		  double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
+		  
+		  double delta_cdm_plus_b_nb = ( 
+			  		ppw->pvecback[pba->index_bg_rho_cdm] 
+							*( y[ppw->pv->index_pt_delta_cdm] +3./k/k* ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a] * ppw->rho_plus_p_theta/rho_plus_p_tot ) 
+			  	  + ppw->pvecback[pba->index_bg_rho_b]   
+							*( y[ppw->pv->index_pt_delta_b]   +3./k/k* ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a] * ppw->rho_plus_p_theta/rho_plus_p_tot ))
+				  /rho_cdm_plus_b ; 
+      _set_source_(  ppt->index_tp_L_prime) =  delta_cdm_plus_b_nb;  // (y[ppw->pv->index_pt_delta_N] - delta_cdm_plus_b_nb)/k; //  y[ppw->pv->index_pt_L_prime] ; //
+	  
+	  //this part is used to output the gauge transformation computed using the second method, if we output (y[ppw->pv->index_pt_delta_N] - delta_cdm_plus_b_nb)/k; 
     }
 
   }
@@ -7307,20 +7336,92 @@ int perturb_derivs(double tau,
     /** -> spatial gauge displacement */
 
     if (ppt->has_spatial_gauge_transfers == _TRUE_) {
-	  double a_init = 0.001;
-	  double a_width = 0.0001;
+		
+		//compute needed quantities
+		
+	  double a_init = 1./101.;
+	  double a_width = 1./10000.;
 	  double a_end = a_init+a_width; 
-      dy[pv->index_pt_L] = y[pv->index_pt_L_prime]; 
-      dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a * a * (ppw->pvecback[pba->index_bg_rho_cdm]+ppw->pvecback[pba->index_bg_rho_b])*y[pv->index_pt_L]
+	  
+	  //a_init is the time when the nbody initial conditions are set. a_width is a numerical parameter detemining how sharp the step function used to turn on the sources at a_init is. 
+	  
+	  double xw  = (a-a_init)/(a_end-a_init);
+	  if (xw < 0) xw = 0;
+	  if (xw > 1) xw = 1;
+	  double xsmoth = xw*xw*xw*(6.*xw*xw - 15.*xw + 10.);
+	  
+	  // xsmoth is 0 befre a_init and 1 after a_end. It is a smooth transition with vanishing first and second derivatives at both ends. 
+	  
+	  double ITD =  3000.*(a_prime_over_a + k);
+	  
+	  // time scale used to force the artificial equations. Must be much larger than other relevant scales
+	  
+	  double rho_plus_p_tot =4./3.* ppw->pvecback[pba->index_bg_rho_g] + 4./3.*ppw->pvecback[pba->index_bg_rho_ur]+ppw->pvecback[pba->index_bg_rho_cdm]+ppw->pvecback[pba->index_bg_rho_b];
+	  double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
+	  
+	  double HCA_nb =  a_prime_over_a /rho_plus_p_tot * 
+		  (ppw->rho_plus_p_shear - ppw->delta_p 
+		  							- a_prime_over_a   /k /k *  (4./3. *ppw->pvecback[pba->index_bg_rho_g] + 4./3. *ppw->pvecback[pba->index_bg_rho_ur])/rho_plus_p_tot *ppw->rho_plus_p_theta );
+	  
+	  //HCA_nb is the multiplication of Hc and A in nbody gauge
+	  
+	  double HCtheta_p = a_prime_over_a /rho_plus_p_tot * ppw->rho_plus_p_theta;
+	  
+	  // HCtheta_p is the multiplication of Hc and theta in Poisson gauge
+	  
+	  
+      dy[pv->index_pt_HCA_nb] = 	ITD * (	HCA_nb    	- y[pv->index_pt_HCA_nb] ) ;  
+	  
+	  dy[pv->index_pt_HCtheta_p] = 	ITD * ( HCtheta_p   - y[pv->index_pt_HCtheta_p] ); 
+	  
+	  //in these equations the derivative of HCA_nb and HCtheta_p is computed numerically. For HCtheta_p this is probably not even nescecarry and it can be build from known perturbations.
+	  
+	 
+	  double delta_cdm_plus_b_nb = ( 
+		  		ppw->pvecback[pba->index_bg_rho_cdm] 
+						*( y[pv->index_pt_delta_cdm] +3./k/k* a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot ) 
+		  	  + ppw->pvecback[pba->index_bg_rho_b]   
+						*( y[pv->index_pt_delta_b]   +3./k/k* a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot ))
+			  /rho_cdm_plus_b ; 
+	  
+	  double theta_cdm_plus_b_nb = ( 
+		  		ppw->pvecback[pba->index_bg_rho_cdm] 
+						*( y[pv->index_pt_theta_cdm] - 3./k/k* dy[pv->index_pt_HCtheta_p] - 3. * pvecmetric[ppw->index_mt_phi_prime]) 
+		  	  + ppw->pvecback[pba->index_bg_rho_b]   
+						*( y[pv->index_pt_theta_b]   - 3./k/k* dy[pv->index_pt_HCtheta_p] - 3. * pvecmetric[ppw->index_mt_phi_prime]))
+			  /rho_cdm_plus_b ; 
+	  
+	  // these are the density and velocity of the baryon cdm fluid in nbody gauge. 
+	  
+	
+	  
+	  dy[pv->index_pt_delta_N] = - xsmoth * y [pv->index_pt_theta_N]  
+		  +(1.-xsmoth) * ITD * ( delta_cdm_plus_b_nb  -  y[pv->index_pt_delta_N] )  ;
+		  
+	  dy[pv->index_pt_theta_N] =  xsmoth*( - a_prime_over_a * y[pv->index_pt_theta_N] -1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_delta_N]  )
+		  + (1-xsmoth) * ITD * ( theta_cdm_plus_b_nb  -  y[pv->index_pt_theta_N] )  ; 
+	  
+	  //The Newtonian density and velocity. These equations are forced to follow the nbody gauge quantities before a_init (setting intiial conditions) and then evolve Newtonian after a_init (linearised nbody simulation). Here the forcing is especially problematic and requires an extremely large ITD. The problem can be fully resolved using an approximation sheme instead. 
+	  
+	  
+      dy[pv->index_pt_L] = y[pv->index_pt_L_prime]; //!!!
+      
+	  dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_L]
 		  // dark matter growth function 
-		   - ( a > a_end ? 1. :  (a>a_init ? (a - a_init)/(a_end- a_init) : 0. ) ) * 4.5 * a * a / k * ppw->rho_plus_p_shear // anisotropic stress source 
-		   - ( a > a_end ? 1. :  (a>a_init ? (a - a_init)/(a_end- a_init) : 0. ) ) * 1.5 * a * a / k *(  //density of other species
-				    0. * ppw->pvecback[pba->index_bg_rho_ur]*(y[pv->index_pt_delta_ur] + 4. * a_prime_over_a * y[pv->index_pt_theta_ur]/k/k)  //ur
-				       + ppw->pvecback[pba->index_bg_rho_g] *(y[pv->index_pt_delta_g]  + 4. * a_prime_over_a * y[pv->index_pt_theta_g] /k/k )) //photons
-		   // + 3. / k * (d/deta + HC) ( HC A)   // spatial gauge source
+		   -  xsmoth * 4.5 * a * a / k * ppw->rho_plus_p_shear // anisotropic stress source 
+		   -  xsmoth*  1.5 * a * a / k *(  //density of other species 
+				   	    ppw->pvecback[pba->index_bg_rho_ur]*(y[pv->index_pt_delta_ur] + 4./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)  // ur
+	   				 +  ppw->pvecback[pba->index_bg_rho_g] *(delta_g                  + 4./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)
+				     +  0.*ppw->pvecback[pba->index_bg_rho_b] *(y[pv->index_pt_delta_b]  + 3./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)
+							) //photons
+		   +  xsmoth * 3. / k * (dy[pv->index_pt_HCA_nb] + a_prime_over_a * y[pv->index_pt_HCA_nb])   // spatial gauge source
 			   ; 
 
+	  // Finally the dynamical euqations for the gauge transformation.
+
     }
+
+
 
   }
 

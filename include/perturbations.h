@@ -296,6 +296,7 @@ struct perturbs
   int index_tp_psi;          /**< index value for metric fluctuation psi */
   int index_tp_L;            /**< index value for spatial gauge displacement L */
   int index_tp_L_prime;      /**< index value for derivative of spatial gauge displacement L */
+ 
 
   int * tp_size; /**< number of types tp_size[index_md] included in computation for each mode */
 
@@ -421,6 +422,10 @@ struct perturb_vector
   int index_pt_phi;
   int index_pt_L;            /**< index value for spatial gauge displacement L */
   int index_pt_L_prime;      /**< index value for derivative of spatial gauge displacement L */
+  int index_pt_HCA_nb;			 /**< index value for the nbody gauge lapse times H */
+  int index_pt_HCtheta_p;			 /**< index value for the poisson gauge velocity times H */
+  int index_pt_delta_N;			 /**< index value for the Newtonian density */
+  int index_pt_theta_N;			 /**< index value for the Newtonian velocity divergence */
 
   int index_pt_hv_prime;  /**< vector metric perturbation h_v' in synchronous gauge */
   int index_pt_V;         /**< vector metric perturbation V in Newtonian gauge */
