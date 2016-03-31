@@ -8580,7 +8580,7 @@ int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec){
       if (index_l == 0)
         lastterm = 20./9.*q*q*qpr*qpr*exp(-q);
       if (index_l == 1)
-	lastterm = 10./9.*q*q*qpr*qpr*exp(-q);
+	lastterm = - 10./9.*q*q*qpr*qpr*exp(-q);
       if (index_l == 2)
 	lastterm = 2./9.*q*q*qpr*qpr*exp(-q);	
       else
