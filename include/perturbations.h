@@ -27,6 +27,7 @@
 //@{
 
 enum tca_flags {tca_on, tca_off};
+enum levo_flags {levo_off,levo_on};
 enum rsa_flags {rsa_off, rsa_on};
 enum ufa_flags {ufa_off, ufa_on};
 enum ncdmfa_flags {ncdmfa_off, ncdmfa_on};
@@ -296,6 +297,10 @@ struct perturbs
   int index_tp_psi;          /**< index value for metric fluctuation psi */
   int index_tp_L;            /**< index value for spatial gauge displacement L */
   int index_tp_L_prime;      /**< index value for derivative of spatial gauge displacement L */
+  int index_tp_H_T_nm;      /**< index value for derivative of spatial gauge displacement L */
+  int index_tp_delta_N;      /**< index value for derivative of spatial gauge displacement L */
+  int index_tp_A_nm;      /**< index value for derivative of spatial gauge displacement L */
+  int index_tp_B_nm;      /**< index value for derivative of spatial gauge displacement L */
  
 
   int * tp_size; /**< number of types tp_size[index_md] included in computation for each mode */
@@ -531,6 +536,7 @@ struct perturb_workspace
   //@{
 
   int index_ap_tca; /**< index for tight-coupling approximation */
+  int index_ap_levo; /**< index for evolution of L */
   int index_ap_rsa; /**< index for radiation streaming approximation */
   int index_ap_ufa; /**< index for ur fluid approximation */
   int index_ap_ncdmfa; /**< index for ncdm fluid approximation */

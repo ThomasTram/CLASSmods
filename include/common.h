@@ -359,6 +359,12 @@ struct precision
 
 
   /**
+  * parameter setting the initial time for a nbody simulation 
+  */
+  double a_init_nbody;
+  
+
+  /**
    * parameter controlling how deep inside radiation domination must the
    * initial time be chosen
    */

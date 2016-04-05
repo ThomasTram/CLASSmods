@@ -2381,6 +2381,7 @@ int input_read_parameters(
   class_read_double("tol_tau_approx",ppr->tol_tau_approx);
   class_read_double("tol_perturb_integration",ppr->tol_perturb_integration);
   class_read_double("perturb_sampling_stepsize",ppr->perturb_sampling_stepsize);
+  class_read_double("a_init_nbody",ppr->a_init_nbody);
 
   class_read_int("radiation_streaming_approximation",ppr->radiation_streaming_approximation);
   class_read_double("radiation_streaming_trigger_tau_over_tau_k",ppr->radiation_streaming_trigger_tau_over_tau_k);
@@ -3013,6 +3014,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->tol_tau_approx=1.e-10;
   ppr->tol_perturb_integration=1.e-5;
   ppr->perturb_sampling_stepsize=0.10;
+  ppr->a_init_nbody = 1/101.;
 
   ppr->radiation_streaming_approximation = rsa_MD_with_reio;
   ppr->radiation_streaming_trigger_tau_over_tau_k = 45.;
