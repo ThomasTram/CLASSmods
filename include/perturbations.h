@@ -427,8 +427,6 @@ struct perturb_vector
   int index_pt_phi;
   int index_pt_L;            /**< index value for spatial gauge displacement L */
   int index_pt_L_prime;      /**< index value for derivative of spatial gauge displacement L */
-  int index_pt_HCA_nb;			 /**< index value for the nbody gauge lapse times H */
-  int index_pt_HCtheta_p;			 /**< index value for the poisson gauge velocity times H */
   int index_pt_delta_N;			 /**< index value for the Newtonian density */
   int index_pt_theta_N;			 /**< index value for the Newtonian velocity divergence */
 
@@ -500,6 +498,12 @@ struct perturb_workspace
   double gw_source;
   double vector_source_pi;
   double vector_source_v;
+  
+  double HCtheta_p_old; /**<stores values of previos timestep for numerical computation of derivatives */
+  double HCA_nb_old;
+  double tau_old;    
+  double HCtheta_p_prime;
+  double HCA_nb_prime;  
 
   double tca_shear_g; /**< photon shear in tight-coupling approximation */
   double tca_slip;    /**< photon-baryon slip in tight-coupling approximation */
@@ -768,6 +772,15 @@ extern "C" {
                               void * parameters_and_workspace,
                               ErrorMsg error_message
                               );
+
+  int perturb_store_timestep(
+							  double tau,
+							  double * y,
+							  double * dy,
+							  void * parameters_and_workspace,
+							  ErrorMsg error_message
+							  );
+ 										
 
   int perturb_derivs(
                      double tau,
