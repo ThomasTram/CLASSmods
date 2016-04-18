@@ -1974,6 +1974,11 @@ int perturb_workspace_init(
 
   }
 
+  /** Set some initial values */
+  ppw->HCtheta_p_prime = 0.0;
+  ppw->HCA_nb_prime = 0.0;
+
+
   return _SUCCESS_;
 }
 
@@ -2319,8 +2324,7 @@ int perturb_solve(
       /**class_call(perturb_prepare_output_file(
          pba,ppt,ppw,index_ikout,index_md),
          ppt->error_message,
-         ppt->error_message);
-      */
+         ppt->error_message);*/
     }
   }
 
@@ -2389,7 +2393,7 @@ int perturb_solve(
                                ppt->tau_sampling,
                                tau_actual_size,
                                perturb_sources,
-                               perturb_store_timestep,
+                               perhaps_print_variables,
                                ppt->error_message),
                ppt->error_message,
                ppt->error_message);
@@ -2490,11 +2494,16 @@ int perturb_prepare_output(struct background * pba,
       /* Spatial gauge displacement L */
       class_store_columntitle(ppt->scalar_titles, "L", ppt->has_spatial_gauge_transfers);
       class_store_columntitle(ppt->scalar_titles, "L_prime", ppt->has_spatial_gauge_transfers);
-	  class_store_columntitle(ppt->scalar_titles, "delta_N", ppt->has_spatial_gauge_transfers);
-	  class_store_columntitle(ppt->scalar_titles, "H_T_nm", ppt->has_spatial_gauge_transfers);
-	  class_store_columntitle(ppt->scalar_titles, "A_nm", ppt->has_spatial_gauge_transfers);
-	  class_store_columntitle(ppt->scalar_titles, "B_nm", ppt->has_spatial_gauge_transfers);
-	  class_store_columntitle(ppt->scalar_titles, "H_L_nm", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "delta_N", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "H_T_nm", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "A_nm", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "B_nm", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "H_L_nm", ppt->has_spatial_gauge_transfers);
+
+      class_store_columntitle(ppt->scalar_titles, "HCtheta", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "HCtheta_prime", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "HCAnb", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "HCAnb_prime", ppt->has_spatial_gauge_transfers);
 
       ppt->number_of_scalar_titles =
         get_number_of_titles(ppt->scalar_titles);
@@ -2961,6 +2970,8 @@ int perturb_vector_init(
   int l;
   int n_ncdm,index_q,ncdm_l_size;
   double rho_plus_p_ncdm,q,q2,epsilon,a,factor;
+
+  a = ppw->pvecback[pba->index_bg_a];
 
   /** - allocate a new perturb_vector structure to which ppw->pv will point at the end of the routine */
 
@@ -3492,140 +3503,129 @@ int perturb_vector_init(
         ppv->y[ppv->index_pt_phi] =
           ppw->pv->y[ppw->pv->index_pt_phi];
 
-      
-
-
-      double rho_plus_p_tot =4./3.* ppw->pvecback[pba->index_bg_rho_g] + 4./3.*ppw->pvecback[pba->index_bg_rho_ur]+ppw->pvecback[pba->index_bg_rho_cdm]+ppw->pvecback[pba->index_bg_rho_b];
- 	  double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
-	 
-	  double a_prime_over_a = ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a];
-	 	
-
+      /**
 	  ppw->HCA_nb_old =  a_prime_over_a /rho_plus_p_tot * 
 		   (ppw->rho_plus_p_shear - ppw->delta_p 
 						- a_prime_over_a   /k /k *  (4./3. *ppw->pvecback[pba->index_bg_rho_g] + 4./3. *ppw->pvecback[pba->index_bg_rho_ur])/rho_plus_p_tot *ppw->rho_plus_p_theta );
 	  
 	  ppw->HCtheta_p_old =  a_prime_over_a /rho_plus_p_tot * ppw->rho_plus_p_theta;
-	  
+      */
 
-      /* -- case of switching off tight coupling
-         approximation. Provide correct initial conditions to new set
-         of variables */
+      /* -- case of switching on L evolution. Provide correct initial conditions to new set of variables */
       
-	  if ((pa_old[ppw->index_ap_levo] == (int)levo_off) && (ppw->approx[ppw->index_ap_levo] == (int)levo_on)) {
+      if ((pa_old[ppw->index_ap_levo] == (int)levo_off) && (ppw->approx[ppw->index_ap_levo] == (int)levo_on)) {
+        double rho_plus_p_tot = 2./3.*(pba->K/a/a-ppw->pvecback[pba->index_bg_H_prime]/a);
+        double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
+        double a_prime_over_a = ppw->pvecback[pba->index_bg_H] * a;
+        double theta_tot = ppw->rho_plus_p_theta/rho_plus_p_tot;
 		  
-          ppv->y[ppv->index_pt_L] = 0.;
-          ppv->y[ppv->index_pt_L_prime] = 0.;
-		  
-	     
-		 
-		  double delta_cdm_plus_b_nb = ( 
-			  		ppw->pvecback[pba->index_bg_rho_cdm] 
-							*( ppw->pv->y[ppw->pv->index_pt_delta_cdm] +3./k/k*  a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot ) 
-			  	  + ppw->pvecback[pba->index_bg_rho_b]   
-							*( ppw->pv->y[ppw->pv->index_pt_delta_b]   +3./k/k*  a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot ))
-				  /rho_cdm_plus_b ; 
+        ppv->y[ppv->index_pt_L] = 0.;
+        ppv->y[ppv->index_pt_L_prime] = 0.;
+
+        double delta_cdm_plus_b_nb =
+          (ppw->pvecback[pba->index_bg_rho_cdm]*(ppw->pv->y[ppw->pv->index_pt_delta_cdm] +3./k/k*a_prime_over_a*theta_tot)+
+           ppw->pvecback[pba->index_bg_rho_b] * (ppw->pv->y[ppw->pv->index_pt_delta_b]   +3./k/k*a_prime_over_a*theta_tot))/rho_cdm_plus_b ;
 	  
-		  double theta_cdm_plus_b_nb = ( 
-			  		ppw->pvecback[pba->index_bg_rho_cdm] 
-							*( ppw->pv->y[ppw->pv->index_pt_theta_cdm] - 3./k/k* ppw->HCtheta_p_prime - 3. *  ppw->pvecmetric[ppw->index_mt_phi_prime]) 
-			  	  + ppw->pvecback[pba->index_bg_rho_b]   
-							*( ppw->pv->y[ppw->pv->index_pt_theta_b]   - 3./k/k* ppw->HCtheta_p_prime - 3. *  ppw->pvecmetric[ppw->index_mt_phi_prime]))
-				  /rho_cdm_plus_b ; 
+        double theta_cdm_plus_b_nb = (
+                                      ppw->pvecback[pba->index_bg_rho_cdm]
+                                      *( ppw->pv->y[ppw->pv->index_pt_theta_cdm] - 3./k/k* ppw->HCtheta_p_prime - 3. *  ppw->pvecmetric[ppw->index_mt_phi_prime])
+                                      + ppw->pvecback[pba->index_bg_rho_b]
+                                      *( ppw->pv->y[ppw->pv->index_pt_theta_b]   - 3./k/k* ppw->HCtheta_p_prime - 3. *  ppw->pvecmetric[ppw->index_mt_phi_prime]))
+          /rho_cdm_plus_b ;
 		  
-          ppv->y[ppv->index_pt_delta_N] = delta_cdm_plus_b_nb; 
-          ppv->y[ppv->index_pt_theta_N] = theta_cdm_plus_b_nb; 
+        ppv->y[ppv->index_pt_delta_N] = delta_cdm_plus_b_nb;
+        ppv->y[ppv->index_pt_theta_N] = theta_cdm_plus_b_nb;
 		  
-		  //other quants
+        //other quants
 		 
 		 
-		  if (pba->has_ncdm == _TRUE_) {
-		            index_pt = 0;
-		            for(n_ncdm = 0; n_ncdm < ppv->N_ncdm; n_ncdm++){
-		              for(index_q=0; index_q < ppv->q_size_ncdm[n_ncdm]; index_q++){
-		                for(l=0; l<=ppv->l_max_ncdm[n_ncdm];l++){
-		                  // This is correct with or without ncdmfa, since ppv->lmax_ncdm is set accordingly.
-		                  ppv->y[ppv->index_pt_psi0_ncdm1+index_pt] =
-		                    ppw->pv->y[ppw->pv->index_pt_psi0_ncdm1+index_pt];
-		                  index_pt++;
-		                }
-		              }
-		            }
-		          }
+        if (pba->has_ncdm == _TRUE_) {
+          index_pt = 0;
+          for(n_ncdm = 0; n_ncdm < ppv->N_ncdm; n_ncdm++){
+            for(index_q=0; index_q < ppv->q_size_ncdm[n_ncdm]; index_q++){
+              for(l=0; l<=ppv->l_max_ncdm[n_ncdm];l++){
+                // This is correct with or without ncdmfa, since ppv->lmax_ncdm is set accordingly.
+                ppv->y[ppv->index_pt_psi0_ncdm1+index_pt] =
+                  ppw->pv->y[ppw->pv->index_pt_psi0_ncdm1+index_pt];
+                index_pt++;
+              }
+            }
+          }
+        }
 		  
 		  
-      	if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
+        if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
 
-            ppv->y[ppv->index_pt_delta_g] =
-              ppw->pv->y[ppw->pv->index_pt_delta_g];
+          ppv->y[ppv->index_pt_delta_g] =
+            ppw->pv->y[ppw->pv->index_pt_delta_g];
 
-            ppv->y[ppv->index_pt_theta_g] =
-              ppw->pv->y[ppw->pv->index_pt_theta_g];
+          ppv->y[ppv->index_pt_theta_g] =
+            ppw->pv->y[ppw->pv->index_pt_theta_g];
         }
 
         if ((ppw->approx[ppw->index_ap_tca] == (int)tca_off) && (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off)) {
 
-            ppv->y[ppv->index_pt_shear_g] =
-              ppw->pv->y[ppw->pv->index_pt_shear_g];
+          ppv->y[ppv->index_pt_shear_g] =
+            ppw->pv->y[ppw->pv->index_pt_shear_g];
 
-            ppv->y[ppv->index_pt_l3_g] =
-              ppw->pv->y[ppw->pv->index_pt_l3_g];
+          ppv->y[ppv->index_pt_l3_g] =
+            ppw->pv->y[ppw->pv->index_pt_l3_g];
 
-            for (l = 4; l <= ppw->pv->l_max_g; l++) {
+          for (l = 4; l <= ppw->pv->l_max_g; l++) {
 
-              ppv->y[ppv->index_pt_delta_g+l] =
-                ppw->pv->y[ppw->pv->index_pt_delta_g+l];
+            ppv->y[ppv->index_pt_delta_g+l] =
+              ppw->pv->y[ppw->pv->index_pt_delta_g+l];
           }
 
-            ppv->y[ppv->index_pt_pol0_g] =
-              ppw->pv->y[ppw->pv->index_pt_pol0_g];
+          ppv->y[ppv->index_pt_pol0_g] =
+            ppw->pv->y[ppw->pv->index_pt_pol0_g];
 
-            ppv->y[ppv->index_pt_pol1_g] =
-              ppw->pv->y[ppw->pv->index_pt_pol1_g];
+          ppv->y[ppv->index_pt_pol1_g] =
+            ppw->pv->y[ppw->pv->index_pt_pol1_g];
 
-            ppv->y[ppv->index_pt_pol2_g] =
-              ppw->pv->y[ppw->pv->index_pt_pol2_g];
+          ppv->y[ppv->index_pt_pol2_g] =
+            ppw->pv->y[ppw->pv->index_pt_pol2_g];
 
-            ppv->y[ppv->index_pt_pol3_g] =
-              ppw->pv->y[ppw->pv->index_pt_pol3_g];
+          ppv->y[ppv->index_pt_pol3_g] =
+            ppw->pv->y[ppw->pv->index_pt_pol3_g];
 
-            for (l = 4; l <= ppw->pv->l_max_pol_g; l++) {
+          for (l = 4; l <= ppw->pv->l_max_pol_g; l++) {
 
-              ppv->y[ppv->index_pt_pol0_g+l] =
-                ppw->pv->y[ppw->pv->index_pt_pol0_g+l];
+            ppv->y[ppv->index_pt_pol0_g+l] =
+              ppw->pv->y[ppw->pv->index_pt_pol0_g+l];
+          }
+
+        }
+
+        if (pba->has_ur == _TRUE_) {
+
+          if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
+
+
+            ppv->y[ppv->index_pt_delta_ur] =
+              ppw->pv->y[ppw->pv->index_pt_delta_ur];
+
+            ppv->y[ppv->index_pt_theta_ur] =
+              ppw->pv->y[ppw->pv->index_pt_theta_ur];
+
+            ppv->y[ppv->index_pt_shear_ur] =
+              ppw->pv->y[ppw->pv->index_pt_shear_ur];
+
+            if (ppw->approx[ppw->index_ap_ufa] == (int)ufa_off) {
+
+              ppv->y[ppv->index_pt_l3_ur] =
+                ppw->pv->y[ppw->pv->index_pt_l3_ur];
+
+              for (l=4; l <= ppv->l_max_ur; l++)
+                ppv->y[ppv->index_pt_delta_ur+l] =
+                  ppw->pv->y[ppw->pv->index_pt_delta_ur+l];
+
             }
-
           }
-
-          if (pba->has_ur == _TRUE_) {
-
-            if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off) {
-
-
-              ppv->y[ppv->index_pt_delta_ur] =
-                ppw->pv->y[ppw->pv->index_pt_delta_ur];
-
-              ppv->y[ppv->index_pt_theta_ur] =
-                ppw->pv->y[ppw->pv->index_pt_theta_ur];
-
-              ppv->y[ppv->index_pt_shear_ur] =
-                ppw->pv->y[ppw->pv->index_pt_shear_ur];
-
-              if (ppw->approx[ppw->index_ap_ufa] == (int)ufa_off) {
-
-                ppv->y[ppv->index_pt_l3_ur] =
-                  ppw->pv->y[ppw->pv->index_pt_l3_ur];
-
-                for (l=4; l <= ppv->l_max_ur; l++)
-                  ppv->y[ppv->index_pt_delta_ur+l] =
-                    ppw->pv->y[ppw->pv->index_pt_delta_ur+l];
-
-              }
-            }
-          }
+        }
 		  
 		  
-	  } else if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
+      } else if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
 	  	
           ppv->y[ppv->index_pt_L] =
             ppw->pv->y[ppw->pv->index_pt_L];
@@ -3636,7 +3636,7 @@ int perturb_vector_init(
           ppv->y[ppv->index_pt_theta_N] =
             ppw->pv->y[ppw->pv->index_pt_theta_N];
 		
-	  }
+      }
 
       if ((pa_old[ppw->index_ap_tca] == (int)tca_on) && (ppw->approx[ppw->index_ap_tca] == (int)tca_off)) {
 
@@ -3907,7 +3907,6 @@ int perturb_vector_init(
             }
           }
 
-          a = ppw->pvecback[pba->index_bg_a];
           index_pt = ppw->pv->index_pt_psi0_ncdm1;
           for(n_ncdm = 0; n_ncdm < ppv->N_ncdm; n_ncdm++){
             // We are in the fluid approximation, so ncdm_l_size is always 3.
@@ -4644,13 +4643,11 @@ int perturb_initial_conditions(struct precision * ppr,
     if (ppt->has_spatial_gauge_transfers == _TRUE_) {
 
       ppw->tau_old = tau;
-	  ppw->HCA_nb_prime = 0.;
-	  ppw->HCA_nb_old = 0.;
-	  ppw->HCtheta_p_prime = 0.;
-	  ppw->HCtheta_p_old = 0.;
+      ppw->HCA_nb_prime = 0.;
+      ppw->HCA_nb_old = 0.;
+      ppw->HCtheta_p_prime = 0.;
+      ppw->HCtheta_p_old = 0.;
       //ppw->pv->y[ppw->pv->index_pt_L_prime] = 0.0; 
-
-	  
 
     }
 
@@ -6258,41 +6255,42 @@ int perturb_sources(
     /* Spatial gauge displacement and derivative */
     if (ppt->has_source_L == _TRUE_) {
 		
-	  double L_gauge = 0.;
-	  if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) L_gauge = y[ppw->pv->index_pt_L];
-		
-      _set_source_(ppt->index_tp_L) =  L_gauge;
+      if (ppw->approx[ppw->index_ap_levo] == (int)levo_on){
+        _set_source_(ppt->index_tp_L) = y[ppw->pv->index_pt_L];
+      }
     }
     if (ppt->has_source_L_prime == _TRUE_) {
 		
-  	  double L_gauge = 0.;
-  	  if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) L_gauge = y[ppw->pv->index_pt_L];
+      double L_gauge = 0., L_prime_gauge = 0.;
+      if (ppw->approx[ppw->index_ap_levo] == (int)levo_on)
+        L_gauge = y[ppw->pv->index_pt_L];
 			
-  	  double L_prime_gauge = 0.;
-  	  if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) L_prime_gauge = y[ppw->pv->index_pt_L_prime];
-	  
-      double rho_plus_p_tot =4./3.* ppw->pvecback[pba->index_bg_rho_g] + 4./3.*ppw->pvecback[pba->index_bg_rho_ur]+ppw->pvecback[pba->index_bg_rho_cdm]+ppw->pvecback[pba->index_bg_rho_b];
- 	  double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
+      if (ppw->approx[ppw->index_ap_levo] == (int)levo_on)
+        L_prime_gauge = y[ppw->pv->index_pt_L_prime];
+
+      double a = ppw->pvecback[pba->index_bg_a];
+      double rho_plus_p_tot = 2./3.*(pba->K/a/a-pvecback[pba->index_bg_H_prime]/a);
+      double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
 		  
-	  double delta_cdm_plus_b_nb = ( 
-			  		ppw->pvecback[pba->index_bg_rho_cdm] 
-							*( y[ppw->pv->index_pt_delta_cdm] +3./k/k* ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a] * ppw->rho_plus_p_theta/rho_plus_p_tot ) 
-			  	  + ppw->pvecback[pba->index_bg_rho_b]   
-							*( y[ppw->pv->index_pt_delta_b]   +3./k/k* ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a] * ppw->rho_plus_p_theta/rho_plus_p_tot ))
-				  /rho_cdm_plus_b ; 
+      double delta_cdm_plus_b_nb = (
+                                    ppw->pvecback[pba->index_bg_rho_cdm]
+                                    *( y[ppw->pv->index_pt_delta_cdm] +3./k/k* a *ppw->pvecback[pba->index_bg_H]  * ppw->rho_plus_p_theta/rho_plus_p_tot )
+                                    + ppw->pvecback[pba->index_bg_rho_b]
+                                    *( y[ppw->pv->index_pt_delta_b]   +3./k/k*a* ppw->pvecback[pba->index_bg_H] * ppw->rho_plus_p_theta/rho_plus_p_tot ))
+        /rho_cdm_plus_b ;
 	    
-	  double theta_nb = ppw->rho_plus_p_theta /  rho_plus_p_tot  - 3./k/k* ppw->HCtheta_p_prime - 3. * pvecmetric[ppw->index_mt_phi_prime];
+      double theta_nb = ppw->rho_plus_p_theta /  rho_plus_p_tot  - 3./k/k* ppw->HCtheta_p_prime - 3. * pvecmetric[ppw->index_mt_phi_prime];
 	
-  	  double delta_N = delta_cdm_plus_b_nb;
-  	  if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) delta_N = y[ppw->pv->index_pt_delta_N];
-	  		
-		  		
+      double delta_N = delta_cdm_plus_b_nb;
+      if (ppw->approx[ppw->index_ap_levo] == (int)levo_on)
+        delta_N = y[ppw->pv->index_pt_delta_N];
+
       _set_source_(  ppt->index_tp_L_prime) =  (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; // delta_N; // 
-	  //  here instead of the derivative (delta_N- delta_cdm_plus_b_nb)/k provides an alternative way to compute L for testing.
-	  _set_source_(  ppt->index_tp_delta_N) =  delta_N;
-	  _set_source_(  ppt->index_tp_H_T_nm) =  - 3./k/k* ppw->HCtheta_p_old - 3. * y[ppw->pv->index_pt_phi] - k * L_gauge ;
-	  _set_source_(  ppt->index_tp_A_nm) =  ppw->HCA_nb_old / ppw->pvecback[pba->index_bg_H] / ppw->pvecback[pba->index_bg_a];
-	  _set_source_(  ppt->index_tp_B_nm) =  theta_nb / k - L_prime_gauge; 
+      //  here instead of the derivative (delta_N- delta_cdm_plus_b_nb)/k provides an alternative way to compute L for testing.
+      _set_source_(  ppt->index_tp_delta_N) =  delta_N;
+      _set_source_(  ppt->index_tp_H_T_nm) =  - 3./k/k* ppw->HCtheta_p_old - 3. * y[ppw->pv->index_pt_phi] - k * L_gauge ;
+      _set_source_(  ppt->index_tp_A_nm) =  ppw->HCA_nb_old / ppw->pvecback[pba->index_bg_H] / ppw->pvecback[pba->index_bg_a];
+      _set_source_(  ppt->index_tp_B_nm) =  theta_nb / k - L_prime_gauge;
 	  
 	
     }
@@ -6659,33 +6657,30 @@ int perturb_print_variables(double tau,
     class_store_double(dataptr, L_prime_gauge, ppt->has_spatial_gauge_transfers,storeidx);
 	
 	
-  	double rho_plus_p_tot =4./3.* ppw->pvecback[pba->index_bg_rho_g] + 4./3.*ppw->pvecback[pba->index_bg_rho_ur]+ppw->pvecback[pba->index_bg_rho_cdm]+ppw->pvecback[pba->index_bg_rho_b];
-  	double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
+    double rho_plus_p_tot = 2./3.*(pba->K/a/a-pvecback[pba->index_bg_H_prime]/a);
+
+    double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
   
- 	double delta_cdm_plus_b_nb = ( 
-	  		ppw->pvecback[pba->index_bg_rho_cdm] 
-					*( y[ppw->pv->index_pt_delta_cdm] +3./k/k* ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a] * ppw->rho_plus_p_theta/rho_plus_p_tot ) 
-	  	  + ppw->pvecback[pba->index_bg_rho_b]   
-					*( y[ppw->pv->index_pt_delta_b]   +3./k/k* ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a] * ppw->rho_plus_p_theta/rho_plus_p_tot ))
-		  /rho_cdm_plus_b ; 
-	
-  	double theta_nb = ppw->rho_plus_p_theta /  rho_plus_p_tot  - 3./k/k* ppw->HCtheta_p_prime - 3. * pvecmetric[ppw->index_mt_phi_prime];
-	 
-	  	
-		
-  	double delta_N = delta_cdm_plus_b_nb;
-  	if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) delta_N = y[ppw->pv->index_pt_delta_N];	
-	
+    double delta_cdm_plus_b_nb = (ppw->pvecback[pba->index_bg_rho_cdm]
+                                  *( y[ppw->pv->index_pt_delta_cdm] +3./k/k* ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a] * ppw->rho_plus_p_theta/rho_plus_p_tot )
+                                  + ppw->pvecback[pba->index_bg_rho_b]
+                                  *( y[ppw->pv->index_pt_delta_b]   +3./k/k* ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a] * ppw->rho_plus_p_theta/rho_plus_p_tot ))
+      /rho_cdm_plus_b ;
 
-		
-    class_store_double(dataptr, delta_N																					, ppt->has_spatial_gauge_transfers,storeidx);
-    class_store_double(dataptr,  - 3./k/k* ppw->HCtheta_p_old - 3. * y[ppw->pv->index_pt_phi] - k * L_gauge					, ppt->has_spatial_gauge_transfers,storeidx);
-    class_store_double(dataptr, ppw->HCA_nb_old / ppw->pvecback[pba->index_bg_H] / ppw->pvecback[pba->index_bg_a]		, ppt->has_spatial_gauge_transfers,storeidx);
-    class_store_double(dataptr,theta_nb / k - L_prime_gauge																				, ppt->has_spatial_gauge_transfers,storeidx);	
-	class_store_double(dataptr, k /3.* L_gauge																							, ppt->has_spatial_gauge_transfers,storeidx);		
+    double theta_nb = ppw->rho_plus_p_theta /  rho_plus_p_tot  - 3./k/k* ppw->HCtheta_p_prime - 3. * pvecmetric[ppw->index_mt_phi_prime];
+    double delta_N = delta_cdm_plus_b_nb;
+    if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) delta_N = y[ppw->pv->index_pt_delta_N];
 
-	
+    class_store_double(dataptr, delta_N, ppt->has_spatial_gauge_transfers,storeidx);
+    class_store_double(dataptr,  - 3./k/k* ppw->HCtheta_p_old - 3. * y[ppw->pv->index_pt_phi] - k * L_gauge, ppt->has_spatial_gauge_transfers,storeidx);
+    class_store_double(dataptr, ppw->HCA_nb_old / ppw->pvecback[pba->index_bg_H] / ppw->pvecback[pba->index_bg_a], ppt->has_spatial_gauge_transfers,storeidx);
+    class_store_double(dataptr,theta_nb / k - L_prime_gauge, ppt->has_spatial_gauge_transfers,storeidx);
+    class_store_double(dataptr, k /3.* L_gauge, ppt->has_spatial_gauge_transfers,storeidx);
 
+    class_store_double(dataptr, ppw->HCtheta_p_old, ppt->has_spatial_gauge_transfers,storeidx);
+    class_store_double(dataptr, ppw->HCtheta_p_prime, ppt->has_spatial_gauge_transfers,storeidx);
+    class_store_double(dataptr, ppw->HCA_nb_old, ppt->has_spatial_gauge_transfers,storeidx);
+    class_store_double(dataptr, ppw->HCA_nb_prime, ppt->has_spatial_gauge_transfers,storeidx);
 
     //fprintf(ppw->perturb_output_file,"\n");
 
@@ -6858,6 +6853,9 @@ int perturb_store_timestep(double tau,
   double *dataptr;
 
 
+  printf("\n\nNOT USED!\n\n");
+  return _FAILURE_;
+
   /** - rename structure fields (just to avoid heavy notations) */
 
   pppaw = parameters_and_workspace;
@@ -6947,128 +6945,36 @@ int perturb_store_timestep(double tau,
       }
     }
 
-    /* gravitational potentials */
-    if (ppt->gauge == synchronous) {
 
-      alpha = pvecmetric[ppw->index_mt_alpha];
 
-      psi = pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a] * alpha + pvecmetric[ppw->index_mt_alpha_prime];
-      phi = y[ppw->pv->index_pt_eta] - pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-    }
-    else if (ppt->gauge == newtonian){
-      psi = pvecmetric[ppw->index_mt_psi];
-      phi = y[ppw->pv->index_pt_phi];
-    }
-    else{
-      psi = 0.0;
-      phi = 0.0;
-    }
+    double rho_plus_p_tot = 2./3.*(pba->K/a/a-pvecback[pba->index_bg_H_prime]/a);
+    double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
 
-    if (pba->has_dcdm == _TRUE_) {
-
-      delta_dcdm = y[ppw->pv->index_pt_delta_dcdm];
-      theta_dcdm = y[ppw->pv->index_pt_theta_dcdm];
-
-    }
-
-    if (pba->has_dr == _TRUE_) {
-      f_dr = pow(pvecback[pba->index_bg_a]*pvecback[pba->index_bg_a]/pba->H0,2)*pvecback[pba->index_bg_rho_dr];
-      delta_dr = y[ppw->pv->index_pt_F0_dr]/f_dr;
-      theta_dr = y[ppw->pv->index_pt_F0_dr+1]*3./4.*k/f_dr;
-      shear_dr = y[ppw->pv->index_pt_F0_dr+2]*0.5/f_dr;
-    }
-
-    if (pba->has_scf == _TRUE_){
-      if (ppt->gauge == synchronous){
-        delta_rho_scf =  1./3.*
-          (1./a2*ppw->pvecback[pba->index_bg_phi_prime_scf]*y[ppw->pv->index_pt_phi_prime_scf]
-           + ppw->pvecback[pba->index_bg_dV_scf]*y[ppw->pv->index_pt_phi_scf]);
-      }
-      else{
-        delta_rho_scf =  1./3.*
-          (1./a2*ppw->pvecback[pba->index_bg_phi_prime_scf]*y[ppw->pv->index_pt_phi_prime_scf]
-           + ppw->pvecback[pba->index_bg_dV_scf]*y[ppw->pv->index_pt_phi_scf]
-           - 1./a2*pow(ppw->pvecback[pba->index_bg_phi_prime_scf],2)*ppw->pvecmetric[ppw->index_mt_psi]);
-      }
-
-      rho_plus_p_theta_scf =  1./3.*
-        k*k/a2*ppw->pvecback[pba->index_bg_phi_prime_scf]*y[ppw->pv->index_pt_phi_scf];
-
-      delta_scf = delta_rho_scf/pvecback[pba->index_bg_rho_scf];
-      theta_scf = rho_plus_p_theta_scf/(pvecback[pba->index_bg_rho_scf]+pvecback[pba->index_bg_p_scf]);
-
-    }
-
-    /* converting synchronous variables to newtonian ones */
-    if (ppt->gauge == synchronous) {
-
-      /* density and velocity perturbations (comment out if you wish to keep synchronous variables) */
-
-      delta_g -= 4. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-      theta_g += k*k*alpha;
-
-      delta_b -= 3. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-      theta_b += k*k*alpha;
-
-      if (pba->has_ur == _TRUE_) {
-        delta_ur -= 4. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-        theta_ur += k*k*alpha;
-      }
-
-      if (pba->has_dr == _TRUE_) {
-        delta_dr += (-4.*a*H+a*pba->Gamma_dcdm*pvecback[pba->index_bg_rho_dcdm]/pvecback[pba->index_bg_rho_dr])*alpha;
-
-        theta_dr += k*k*alpha;
-      }
-
-      if (pba->has_cdm == _TRUE_) {
-        delta_cdm -= 3. * pvecback[pba->index_bg_H]*pvecback[pba->index_bg_a]*alpha;
-        theta_cdm += k*k*alpha;
-      }
-
-      if (pba->has_dcdm == _TRUE_) {
-        delta_dcdm += alpha*(-a*pba->Gamma_dcdm-3.*a*H);
-        theta_dcdm += k*k*alpha;
-      }
-
-      if (pba->has_scf == _TRUE_) {
-        delta_scf += alpha*(-3.0*H*(1.0+pvecback[pba->index_bg_p_scf]/pvecback[pba->index_bg_rho_scf]));
-        theta_scf += k*k*alpha;
-      }
-
-    }
-
-   
-	
-  	double rho_plus_p_tot =4./3.* ppw->pvecback[pba->index_bg_rho_g] + 4./3.*ppw->pvecback[pba->index_bg_rho_ur]+ppw->pvecback[pba->index_bg_rho_cdm]+ppw->pvecback[pba->index_bg_rho_b];
-  	double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
-  
-  	  	
-	
-	double a_prime_over_a = ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a];
+    double a_prime_over_a = ppw->pvecback[pba->index_bg_H] * ppw->pvecback[pba->index_bg_a];
 	
     double HCA_nb =  a_prime_over_a /rho_plus_p_tot * 
-	  (ppw->rho_plus_p_shear - ppw->delta_p 
-	  							- a_prime_over_a   /k /k *  (4./3. *ppw->pvecback[pba->index_bg_rho_g] + 4./3. *ppw->pvecback[pba->index_bg_rho_ur])/rho_plus_p_tot *ppw->rho_plus_p_theta );
-  
-
-  
+          (ppw->rho_plus_p_shear - ppw->delta_p - a_prime_over_a/k/k *
+           (4./3. *ppw->pvecback[pba->index_bg_rho_g] + 4./3. *ppw->pvecback[pba->index_bg_rho_ur])/rho_plus_p_tot *ppw->rho_plus_p_theta );
     double HCtheta_p = a_prime_over_a /rho_plus_p_tot * ppw->rho_plus_p_theta;
   
-  
- 	if (tau > ppw->tau_old) {	 
-   	  ppw->HCA_nb_prime =(HCA_nb - ppw->HCA_nb_old)/(tau - ppw->tau_old);
-	  ppw->HCtheta_p_prime = (HCtheta_p - ppw->HCtheta_p_old)/(tau - ppw->tau_old);
-  	  ppw->HCtheta_p_old = HCtheta_p;
-  	  ppw->HCA_nb_old = HCA_nb;
-  	  ppw->tau_old = tau;
-	//printf("%g %g %g \n", tau, k , ppw->HCA_nb_prime );
+    if (fabs(tau-ppw->tau_old)>1e-6) {
+
+      //ppw->HCA_nb_prime =(HCA_nb - ppw->HCA_nb_old)/(tau - ppw->tau_old);
+      //ppw->HCtheta_p_prime = (HCtheta_p - ppw->HCtheta_p_old)/(tau - ppw->tau_old);
+      //ppw->HCtheta_p_prime = a_prime_over_a*k*k*(pvecmetric[ppw->index_mt_psi]- HCA_nb/a_prime_over_a)-1.5*a2*ppw->rho_plus_p_theta;
+      /**
+      ppw->HCA_nb_prime = -ppw->HCA_nb_prime + 2*(HCA_nb - ppw->HCA_nb_old)/(tau - ppw->tau_old);
+      ppw->HCtheta_p_prime = -ppw->HCtheta_p_prime + 2*(HCtheta_p - ppw->HCtheta_p_old)/(tau - ppw->tau_old);
+      ppw->HCtheta_p_old = HCtheta_p;
+      ppw->HCA_nb_old = HCA_nb;
+      ppw->tau_old = tau;*/
+      //printf("%.16e %.16e %.16e %.16e %.16e %.16e\n", tau, k ,ppw->HCA_nb_old, ppw->HCA_nb_prime, ppw->HCtheta_p_old, ppw->HCtheta_p_prime);
     }
-	
+  }
 
-
-    //fprintf(ppw->perturb_output_file,"\n");
-
+  if (ppw->index_ikout!=-1){
+    class_call(perturb_print_variables(tau, y,dy, parameters_and_workspace,error_message),
+               error_message,error_message);
   }
 
 
@@ -7164,6 +7070,10 @@ int perturb_derivs(double tau,
 
   /* for use with dcdm and dr */
   double f_dr, fprime_dr;
+
+  /* for use with L displacement */
+  double shear_ur_prime=0., shear_g_prime=0., delta_g_prime=0., delta_ur_prime=0., delta_ur=0.0, shear_ur=0.0;
+  double p_ur=0.0, p_g=0.0;
 
   /** - rename the fields of the input structure (just to avoid heavy notations) */
 
@@ -7825,46 +7735,110 @@ int perturb_derivs(double tau,
 
     if (ppt->has_spatial_gauge_transfers == _TRUE_) {
 
-  
-	 
-	  double rho_plus_p_tot =4./3.* ppw->pvecback[pba->index_bg_rho_g] + 4./3.*ppw->pvecback[pba->index_bg_rho_ur]+ppw->pvecback[pba->index_bg_rho_cdm]+ppw->pvecback[pba->index_bg_rho_b];
-	  double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
-	  
-	  double HCA_nb =  a_prime_over_a /rho_plus_p_tot * 
-		  (ppw->rho_plus_p_shear - ppw->delta_p 
-		  							- a_prime_over_a   /k /k *  (4./3. *ppw->pvecback[pba->index_bg_rho_g] + 4./3. *ppw->pvecback[pba->index_bg_rho_ur])/rho_plus_p_tot *ppw->rho_plus_p_theta );
-	
-	  
-	  double HCtheta_p = a_prime_over_a /rho_plus_p_tot * ppw->rho_plus_p_theta;
-	  
-	  // HCtheta_p is the multiplication of Hc and theta in Poisson gauge
-	  
-	  
-	  if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
-		
-	  
-	  	dy[pv->index_pt_delta_N] = - y[pv->index_pt_theta_N] ;
-		  
-	  	dy[pv->index_pt_theta_N] =  - a_prime_over_a * y[pv->index_pt_theta_N] -1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_delta_N]  ;
-	  }
-	  //The Newtonian density and velocity. These equations are forced to follow the nbody gauge quantities before a_init (setting intiial conditions) and then evolve Newtonian after a_init (linearised nbody simulation). Here the forcing is especially problematic and requires an extremely large ITD. The problem can be fully resolved using an approximation sheme instead. 
-	  if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
-	  
-        dy[pv->index_pt_L] = y[pv->index_pt_L_prime]; //!!!
-      
-	    dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_L]
-		  // dark matter growth function 
-		   -  4.5 * a * a / k * ppw->rho_plus_p_shear // anisotropic stress source 
-		   -  1.5 * a * a / k *(  //density of other species 
-				   	    ppw->pvecback[pba->index_bg_rho_ur]*(y[pv->index_pt_delta_ur] + 4./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)  // ur
-	   				 +  ppw->pvecback[pba->index_bg_rho_g] *(delta_g                  + 4./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)  //photons
-				     +  0.*ppw->pvecback[pba->index_bg_rho_b] *(y[pv->index_pt_delta_b]  + 3./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot) //baryons (not needed)
-							) 
-		   + 3. / k * (ppw->HCA_nb_prime + a_prime_over_a * HCA_nb)   // spatial gauge source
-			   ; 
-	   }
+      double rho_plus_p_tot = 2./3.*(pba->K/a/a-pvecback[pba->index_bg_H_prime]/a);
+      double rho_cdm_plus_b = ppw->pvecback[pba->index_bg_rho_cdm] + ppw->pvecback[pba->index_bg_rho_b];
+      //double p_tot = rho_plus_p_tot - ppw->pvecback[pba->index_bg_H]*ppw->pvecback[pba->index_bg_H];
+      double p_tot_real = rho_plus_p_tot - ppw->pvecback[pba->index_bg_H]*ppw->pvecback[pba->index_bg_H];
+      double p_tot = 1./3.*(ppw->pvecback[pba->index_bg_rho_g]+ppw->pvecback[pba->index_bg_rho_ur]);
+      double p_tot_prime = -a_prime_over_a*4./3.*(ppw->pvecback[pba->index_bg_rho_g]+ppw->pvecback[pba->index_bg_rho_ur]);
 
-	  // Finally the dynamical euqations for the gauge transformation.
+
+      /**
+         ppw->HCA_nb =  a_prime_over_a /rho_plus_p_tot *
+        (ppw->rho_plus_p_shear - ppw->delta_p- a_prime_over_a/k/k*(4./3.*ppw->pvecback[pba->index_bg_rho_g]+4./3.*ppw->pvecback[pba->index_bg_rho_ur])/rho_plus_p_tot *ppw->rho_plus_p_theta );
+      */
+
+      ppw->HCA_nb = a_prime_over_a/(rho_plus_p_tot)*(ppw->rho_plus_p_shear-ppw->delta_p+p_tot_prime*ppw->rho_plus_p_theta/k/k);
+      ppw->HCtheta_p = a_prime_over_a /rho_plus_p_tot * ppw->rho_plus_p_theta;
+
+      ppw->HCA_nb_old = ppw->HCA_nb;
+      ppw->HCtheta_p_old = ppw->HCtheta_p;
+
+      //ppw->HCtheta_p_prime = a_prime_over_a*k*k*(pvecmetric[ppw->index_mt_psi]- ppw->HCA_nb/a_prime_over_a)-1.5*a2*ppw->rho_plus_p_theta;
+      //ppw->HCtheta_p_prime = -k*k*(ppw->HCA_nb+pvecmetric[ppw->index_mt_phi_prime]);
+      /**
+         ppw->HCtheta_p_prime = -k*k*pvecmetric[ppw->index_mt_phi_prime]+
+        4*p_tot_real/rho_plus_p_tot*ppw->HCtheta_p+
+        a_prime_over_a*k*k/rho_plus_p_tot*(ppw->delta_p-ppw->rho_plus_p_shear);*/
+      ppw->HCtheta_p_prime = pvecback[pba->index_bg_H_prime]/pvecback[pba->index_bg_H]*ppw->HCtheta_p-
+        p_tot_prime/rho_plus_p_tot*ppw->HCtheta_p+a_prime_over_a*k*k/rho_plus_p_tot*
+        (ppw->delta_p-ppw->rho_plus_p_shear+rho_plus_p_tot*pvecmetric[ppw->index_mt_psi]);
+      //if (fabs(1.0-fabs(ppw->HCA_nb/pvecmetric[ppw->index_mt_phi_prime]))<1e-3)
+      //if (tau<500)
+      //  printf("tau = %g, %.16e %.16e %.16e\n",tau,ppw->HCtheta_p_prime,-k*k*ppw->HCA_nb,-k*k*pvecmetric[ppw->index_mt_phi_prime]);
+
+      // HCtheta_p is the multiplication of Hc and theta in Poisson gauge
+      if (pba->has_ur==_TRUE_){
+        if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off){
+          delta_ur_prime = dy[ppw->pv->index_pt_delta_ur];
+          shear_ur_prime = dy[ppw->pv->index_pt_shear_ur];
+          delta_ur = y[ppw->pv->index_pt_delta_ur];
+          shear_ur = y[ppw->pv->index_pt_shear_ur];
+        }
+        else{
+          delta_ur = ppw->rsa_delta_ur;
+          delta_ur_prime = -4.*pvecmetric[ppw->index_mt_phi_prime];
+        }
+        p_ur = 1./3.*pvecback[pba->index_bg_rho_ur];
+      }
+      if (ppw->approx[ppw->index_ap_rsa] == (int)rsa_off){
+        delta_g_prime = dy[pv->index_pt_delta_g];
+        if (ppw->approx[ppw->index_ap_tca] == (int)tca_off) {
+          shear_g_prime = dy[pv->index_pt_shear_g];
+        }
+      }
+      else{
+        delta_g_prime =  -4.*pvecmetric[ppw->index_mt_phi_prime];
+      }
+      p_g = 1./3.*pvecback[pba->index_bg_rho_g];
+
+      double A_tilde = 0;
+      if (ppt->gauge == newtonian) {
+        A_tilde = pvecmetric[ppw->index_mt_psi];
+      }
+      double xi = ppw->HCA_nb/a_prime_over_a;
+      double A_prime = 1./rho_plus_p_tot*(-a_prime_over_a*rho_cdm_plus_b*xi-p_tot_prime*(xi-A_tilde)+
+                                          p_ur*(4*shear_ur_prime-delta_ur_prime)+
+                                          p_g*(4*shear_g_prime-delta_g_prime)+
+                                          6*p_tot*a*a*ppw->rho_plus_p_theta/k/k);
+
+      //ppw->HCA_nb_prime = (a_prime_over_a+pvecback[pba->index_bg_H_prime]/pvecback[pba->index_bg_H])*ppw->HCA_nb+a_prime_over_a*A_prime;
+      ppw->HCA_nb_prime = a_prime_over_a*ppw->HCA_nb+a_prime_over_a*A_prime-1.5*a2*rho_plus_p_tot*xi;
+	  
+      if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
+
+	  
+        dy[pv->index_pt_delta_N] = - y[pv->index_pt_theta_N] ;
+		  
+        dy[pv->index_pt_theta_N] =  - a_prime_over_a * y[pv->index_pt_theta_N] -1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_delta_N]  ;
+      }
+      //The Newtonian density and velocity. These equations are forced to follow the nbody gauge quantities before a_init (setting intiial conditions) and then evolve Newtonian after a_init (linearised nbody simulation). Here the forcing is especially problematic and requires an extremely large ITD. The problem can be fully resolved using an approximation sheme instead.
+      if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
+
+        double radiation_source;
+        double theta_tot = ppw->rho_plus_p_theta/rho_plus_p_tot;
+        /** Compute radiation source */
+        radiation_source = 3.*p_ur*(delta_ur+4./k/k*a_prime_over_a * theta_tot)+
+          3.*p_g*(delta_g + 4./k/k * a_prime_over_a *theta_tot);
+
+        dy[pv->index_pt_L] = y[pv->index_pt_L_prime]; //!!!
+
+        /**
+           dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_L]
+           -  4.5 * a * a / k * ppw->rho_plus_p_shear // anisotropic stress source
+           -  1.5 * a * a / k *(  //density of other species
+           ppw->pvecback[pba->index_bg_rho_ur]*(y[pv->index_pt_delta_ur] + 4./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)
+           +  ppw->pvecback[pba->index_bg_rho_g] *(delta_g                  + 4./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)
+           +  0.*ppw->pvecback[pba->index_bg_rho_b] *(y[pv->index_pt_delta_b]  + 3./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)
+           )
+           + 3. / k * (ppw->HCA_nb_prime + a_prime_over_a * HCA_nb);  */
+        dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_L]
+          -  4.5 * a * a / k * ppw->rho_plus_p_shear
+          -  1.5 * a * a / k *(  radiation_source )
+          + 3. / k * (ppw->HCA_nb_prime + a_prime_over_a * ppw->HCA_nb);
+      }
+
+      // Finally the dynamical euqations for the gauge transformation.
 
     }
 

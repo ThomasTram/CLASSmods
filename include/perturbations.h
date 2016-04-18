@@ -502,6 +502,8 @@ struct perturb_workspace
   double HCtheta_p_old; /**<stores values of previos timestep for numerical computation of derivatives */
   double HCA_nb_old;
   double tau_old;    
+  double HCA_nb;
+  double HCtheta_p;
   double HCtheta_p_prime;
   double HCA_nb_prime;  
 
