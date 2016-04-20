@@ -6285,7 +6285,7 @@ int perturb_sources(
       if (ppw->approx[ppw->index_ap_levo] == (int)levo_on)
         delta_N = y[ppw->pv->index_pt_delta_N];
 
-      _set_source_(  ppt->index_tp_L_prime) =  (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; // delta_N; // 
+      _set_source_(  ppt->index_tp_L_prime) =  delta_N; // (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; // 
       //  here instead of the derivative (delta_N- delta_cdm_plus_b_nb)/k provides an alternative way to compute L for testing.
       _set_source_(  ppt->index_tp_delta_N) =  delta_N;
       _set_source_(  ppt->index_tp_H_T_nm) =  - 3./k/k* ppw->HCtheta_p_old - 3. * y[ppw->pv->index_pt_phi] - k * L_gauge ;
@@ -7748,7 +7748,7 @@ int perturb_derivs(double tau,
         (ppw->rho_plus_p_shear - ppw->delta_p- a_prime_over_a/k/k*(4./3.*ppw->pvecback[pba->index_bg_rho_g]+4./3.*ppw->pvecback[pba->index_bg_rho_ur])/rho_plus_p_tot *ppw->rho_plus_p_theta );
       */
 
-      ppw->HCA_nb = a_prime_over_a/(rho_plus_p_tot)*(ppw->rho_plus_p_shear-ppw->delta_p+p_tot_prime*ppw->rho_plus_p_theta/k/k);
+      ppw->HCA_nb = a_prime_over_a/(rho_plus_p_tot)*(ppw->rho_plus_p_shear-ppw->delta_p+p_tot_prime*ppw->rho_plus_p_theta/k/k/rho_plus_p_tot);
       ppw->HCtheta_p = a_prime_over_a /rho_plus_p_tot * ppw->rho_plus_p_theta;
 
       ppw->HCA_nb_old = ppw->HCA_nb;
