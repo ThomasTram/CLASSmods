@@ -1253,6 +1253,8 @@ int input_read_parameters(
     if ((strstr(string1,"lTk") != NULL) || (strstr(string1,"LTk") != NULL) || (strstr(string1,"LTK") != NULL)) {
       ppt->has_spatial_gauge_transfers=_TRUE_;
       ppt->has_perturbations = _TRUE_;
+      class_read_int("switch_gamma",ppt->switch_gamma);
+      class_read_int("switch_radiation_source",ppt->switch_radiation_source);
     }
 
   }
@@ -2707,6 +2709,9 @@ int input_default_params(
   ppt->switch_dop = 1;
   ppt->switch_pol = 1;
   ppt->eisw_lisw_split_z = 120;
+
+  ppt->switch_gamma = 1;
+  ppt->switch_radiation_source = 1;
 
   ppt->has_ad=_TRUE_;
   ppt->has_bi=_FALSE_;

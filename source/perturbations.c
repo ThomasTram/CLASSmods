@@ -7815,27 +7815,20 @@ int perturb_derivs(double tau,
       //The Newtonian density and velocity. These equations are forced to follow the nbody gauge quantities before a_init (setting intiial conditions) and then evolve Newtonian after a_init (linearised nbody simulation). Here the forcing is especially problematic and requires an extremely large ITD. The problem can be fully resolved using an approximation sheme instead.
       if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
 
-        double radiation_source;
+        double radiation_source, gamma;
         double theta_tot = ppw->rho_plus_p_theta/rho_plus_p_tot;
+
+        /** Compute gamma */
+        gamma = 4.5 * a * a / k /k * ppw->rho_plus_p_shear - 3. / k/k * (ppw->HCA_nb_prime + a_prime_over_a * ppw->HCA_nb);
         /** Compute radiation source */
         radiation_source = 3.*p_ur*(delta_ur+4./k/k*a_prime_over_a * theta_tot)+
           3.*p_g*(delta_g + 4./k/k * a_prime_over_a *theta_tot);
 
         dy[pv->index_pt_L] = y[pv->index_pt_L_prime]; //!!!
 
-        /**
-           dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_L]
-           -  4.5 * a * a / k * ppw->rho_plus_p_shear // anisotropic stress source
-           -  1.5 * a * a / k *(  //density of other species
-           ppw->pvecback[pba->index_bg_rho_ur]*(y[pv->index_pt_delta_ur] + 4./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)
-           +  ppw->pvecback[pba->index_bg_rho_g] *(delta_g                  + 4./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)
-           +  0.*ppw->pvecback[pba->index_bg_rho_b] *(y[pv->index_pt_delta_b]  + 3./k/k * a_prime_over_a * ppw->rho_plus_p_theta/rho_plus_p_tot)
-           )
-           + 3. / k * (ppw->HCA_nb_prime + a_prime_over_a * HCA_nb);  */
         dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_L]
-          -  4.5 * a * a / k * ppw->rho_plus_p_shear
-          -  1.5 * a * a / k *(  radiation_source )
-          + 3. / k * (ppw->HCA_nb_prime + a_prime_over_a * ppw->HCA_nb);
+          -  ppt->switch_gamma * k * gamma
+          -  ppt->switch_radiation_source * 1.5 * a * a / k *(  radiation_source );
       }
 
       // Finally the dynamical euqations for the gauge transformation.
