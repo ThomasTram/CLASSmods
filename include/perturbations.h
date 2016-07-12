@@ -302,6 +302,9 @@ struct perturbs
   int index_tp_L_prime;      /**< index value for derivative of spatial gauge displacement L */
   int index_tp_H_T_nm;      /**< index value for derivative of spatial gauge displacement L */
   int index_tp_delta_N;      /**< index value for derivative of spatial gauge displacement L */
+  int index_tp_theta_N;      /**< index value for derivative of spatial gauge displacement L */
+  int index_tp_delta_Nb;      /**< index value for derivative of spatial gauge displacement L */
+  int index_tp_theta_Nb;      /**< index value for derivative of spatial gauge displacement L */
   int index_tp_A_nm;      /**< index value for derivative of spatial gauge displacement L */
   int index_tp_B_nm;      /**< index value for derivative of spatial gauge displacement L */
  
@@ -432,6 +435,8 @@ struct perturb_vector
   int index_pt_L_prime;      /**< index value for derivative of spatial gauge displacement L */
   int index_pt_delta_N;			 /**< index value for the Newtonian density */
   int index_pt_theta_N;			 /**< index value for the Newtonian velocity divergence */
+  int index_pt_delta_Nb;			 /**< index value for the Newtonian density */
+  int index_pt_theta_Nb;			 /**< index value for the Newtonian velocity divergence */
 
   int index_pt_hv_prime;  /**< vector metric perturbation h_v' in synchronous gauge */
   int index_pt_V;         /**< vector metric perturbation V in Newtonian gauge */
@@ -508,7 +513,8 @@ struct perturb_workspace
   double HCA_nb;
   double HCtheta_p;
   double HCtheta_p_prime;
-  double HCA_nb_prime;  
+  double HCA_nb_prime;
+  double PhiExtra;
 
   double tca_shear_g; /**< photon shear in tight-coupling approximation */
   double tca_slip;    /**< photon-baryon slip in tight-coupling approximation */

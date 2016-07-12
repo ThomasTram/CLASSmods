@@ -204,6 +204,10 @@ struct spectra {
   int index_tr_theta_tot;      /**< index of total matter velocity transfer function */
   int index_tr_L;              /**< index of spatial gauge displacement transfer function */
   int index_tr_L_prime;        /**< index of derivative of spatial gauge displacement transfer function */
+  int index_tr_delta_N;              /**< index of spatial gauge displacement transfer function */
+  int index_tr_theta_N;        /**< index of derivative of spatial gauge displacement transfer function */
+  int index_tr_delta_Nb;              /**< index of spatial gauge displacement transfer function */
+  int index_tr_theta_Nb;        /**< index of derivative of spatial gauge displacement transfer function */
   int tr_size;                 /**< total number of species in transfer functions */
 
   double * matter_transfer;   /**< Matter transfer functions.

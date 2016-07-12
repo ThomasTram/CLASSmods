@@ -1785,6 +1785,10 @@ int spectra_indices(
   /* indices for spatial gauge displacement transfer function */
   class_define_index(psp->index_tr_L,ppt->has_source_L,index_tr,1);
   class_define_index(psp->index_tr_L_prime,ppt->has_source_L_prime,index_tr,1);
+  class_define_index(psp->index_tr_delta_N,ppt->has_source_L,index_tr,1);
+  class_define_index(psp->index_tr_theta_N,ppt->has_source_L_prime,index_tr,1);
+  class_define_index(psp->index_tr_delta_Nb,ppt->has_source_L,index_tr,1);
+  class_define_index(psp->index_tr_theta_Nb,ppt->has_source_L_prime,index_tr,1);
 
   psp->tr_size = index_tr;
 
@@ -3229,6 +3233,26 @@ int spectra_matter_transfers(
             [index_ic * ppt->tp_size[index_md] + ppt->index_tp_L_prime]
             [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
 
+          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_delta_N] =
+            ppt->sources[index_md]
+            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_delta_N]
+            [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
+
+          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_theta_N] =
+            ppt->sources[index_md]
+            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_theta_N]
+            [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
+
+          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_delta_Nb] =
+            ppt->sources[index_md]
+            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_delta_Nb]
+            [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
+
+          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_theta_Nb] =
+            ppt->sources[index_md]
+            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_theta_Nb]
+            [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
+
         }
 
 
@@ -3309,6 +3333,10 @@ int spectra_output_tk_titles(struct background *pba,
 
       class_store_columntitle(titles,"L",ppt->has_source_L);
       class_store_columntitle(titles,"L_prime",ppt->has_source_L_prime);
+      class_store_columntitle(titles,"delta_N",ppt->has_source_L);
+      class_store_columntitle(titles,"theta_N",ppt->has_source_L_prime);
+      class_store_columntitle(titles,"delta_Nb",ppt->has_source_L);
+      class_store_columntitle(titles,"theta_Nb",ppt->has_source_L_prime);
 
     }
 
@@ -3445,6 +3473,10 @@ int spectra_output_tk_data(
 
             class_store_double(dataptr,tk[psp->index_tr_L],ppt->has_source_L,storeidx);
             class_store_double(dataptr,tk[psp->index_tr_L_prime],ppt->has_source_L_prime,storeidx);
+            class_store_double(dataptr,tk[psp->index_tr_delta_N],ppt->has_source_L,storeidx);
+            class_store_double(dataptr,tk[psp->index_tr_theta_N],ppt->has_source_L_prime,storeidx);
+            class_store_double(dataptr,tk[psp->index_tr_delta_Nb],ppt->has_source_L,storeidx);
+            class_store_double(dataptr,tk[psp->index_tr_theta_Nb],ppt->has_source_L_prime,storeidx);
 
           }
 

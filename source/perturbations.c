@@ -723,6 +723,9 @@ int perturb_indices_of_perturbs(
       class_define_index(ppt->index_tp_L,          ppt->has_source_L,       index_type,1);
       class_define_index(ppt->index_tp_L_prime,    ppt->has_source_L_prime, index_type,1);
 	  class_define_index(ppt->index_tp_delta_N,    ppt->has_source_L_prime, index_type,1);
+          class_define_index(ppt->index_tp_theta_N,    ppt->has_source_L_prime, index_type,1);
+          class_define_index(ppt->index_tp_delta_Nb,    ppt->has_source_L_prime, index_type,1);
+          class_define_index(ppt->index_tp_theta_Nb,    ppt->has_source_L_prime, index_type,1);
 	  class_define_index(ppt->index_tp_H_T_nm,    ppt->has_source_L_prime, index_type,1);
 	  class_define_index(ppt->index_tp_A_nm,    ppt->has_source_L_prime, index_type,1);
 	  class_define_index(ppt->index_tp_B_nm,    ppt->has_source_L_prime, index_type,1);
@@ -3135,7 +3138,9 @@ int perturb_vector_init(
       class_define_index(ppv->index_pt_L,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
       class_define_index(ppv->index_pt_L_prime,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
       class_define_index(ppv->index_pt_delta_N,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
-	  class_define_index(ppv->index_pt_theta_N,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+      class_define_index(ppv->index_pt_theta_N,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+      class_define_index(ppv->index_pt_delta_Nb,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+      class_define_index(ppv->index_pt_theta_Nb,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
     }
     
 
@@ -3535,6 +3540,8 @@ int perturb_vector_init(
 		  
         ppv->y[ppv->index_pt_delta_N] = delta_cdm_plus_b_nb;
         ppv->y[ppv->index_pt_theta_N] = theta_cdm_plus_b_nb;
+        ppv->y[ppv->index_pt_delta_Nb] = delta_cdm_plus_b_nb;
+        ppv->y[ppv->index_pt_theta_Nb] = theta_cdm_plus_b_nb;
 		  
         //other quants
 		 
@@ -3635,6 +3642,10 @@ int perturb_vector_init(
             ppw->pv->y[ppw->pv->index_pt_delta_N];
           ppv->y[ppv->index_pt_theta_N] =
             ppw->pv->y[ppw->pv->index_pt_theta_N];
+          ppv->y[ppv->index_pt_delta_Nb] =
+            ppw->pv->y[ppw->pv->index_pt_delta_Nb];
+          ppv->y[ppv->index_pt_theta_Nb] =
+            ppw->pv->y[ppw->pv->index_pt_theta_Nb];
 		
       }
 
@@ -6282,12 +6293,23 @@ int perturb_sources(
       double theta_nb = ppw->rho_plus_p_theta /  rho_plus_p_tot  - 3./k/k* ppw->HCtheta_p_prime - 3. * pvecmetric[ppw->index_mt_phi_prime];
 	
       double delta_N = delta_cdm_plus_b_nb;
-      if (ppw->approx[ppw->index_ap_levo] == (int)levo_on)
-        delta_N = y[ppw->pv->index_pt_delta_N];
+      double theta_N = theta_nb;
+      double delta_Nb_evo =  delta_cdm_plus_b_nb;
+      double theta_Nb_evo =  theta_nb;
 
-      _set_source_(  ppt->index_tp_L_prime) =  delta_N; // (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; // 
+
+      if (ppw->approx[ppw->index_ap_levo] == (int)levo_on){
+        delta_N = y[ppw->pv->index_pt_delta_N];
+        theta_N = y[ppw->pv->index_pt_theta_N];
+        delta_Nb_evo = y[ppw->pv->index_pt_delta_Nb];
+        theta_Nb_evo = y[ppw->pv->index_pt_theta_Nb];
+      }
+      _set_source_(  ppt->index_tp_L_prime) =  ppw->PhiExtra;//delta_N; // (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; //
       //  here instead of the derivative (delta_N- delta_cdm_plus_b_nb)/k provides an alternative way to compute L for testing.
       _set_source_(  ppt->index_tp_delta_N) =  delta_N;
+      _set_source_(  ppt->index_tp_theta_N) =  theta_N;
+      _set_source_(  ppt->index_tp_delta_Nb) =  delta_Nb_evo;
+      _set_source_(  ppt->index_tp_theta_Nb) =  theta_Nb_evo;
       _set_source_(  ppt->index_tp_H_T_nm) =  - 3./k/k* ppw->HCtheta_p_old - 3. * y[ppw->pv->index_pt_phi] - k * L_gauge ;
       _set_source_(  ppt->index_tp_A_nm) =  ppw->HCA_nb_old / ppw->pvecback[pba->index_bg_H] / ppw->pvecback[pba->index_bg_a];
       _set_source_(  ppt->index_tp_B_nm) =  theta_nb / k - L_prime_gauge;
@@ -7824,11 +7846,23 @@ int perturb_derivs(double tau,
         radiation_source = 3.*p_ur*(delta_ur+4./k/k*a_prime_over_a * theta_tot)+
           3.*p_g*(delta_g + 4./k/k * a_prime_over_a *theta_tot);
 
+        //radiation_source =  3.*p_g*(delta_g + 4./k/k * a_prime_over_a*y[pv->index_pt_theta_cdm]);
+
         dy[pv->index_pt_L] = y[pv->index_pt_L_prime]; //!!!
 
         dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_L]
           -  ppt->switch_gamma * k * gamma
           -  ppt->switch_radiation_source * 1.5 * a * a / k *(  radiation_source );
+
+        dy[pv->index_pt_delta_Nb] = - y[pv->index_pt_theta_Nb] ;
+
+        dy[pv->index_pt_theta_Nb] =  - a_prime_over_a * y[pv->index_pt_theta_Nb] -1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_delta_Nb]
+           -  ppt->switch_gamma * k*k * gamma
+          -  ppt->switch_radiation_source * 1.5 * a * a *(  radiation_source );
+
+        ppw->PhiExtra =   2.*(ppt->switch_gamma * k*k * gamma +  ppt->switch_radiation_source * 1.5 * a * a *(  radiation_source ))/
+          (3*a*a*k*k*(3.*p_ur+3.*p_g));
+
       }
 
       // Finally the dynamical euqations for the gauge transformation.
