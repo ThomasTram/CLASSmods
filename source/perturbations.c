@@ -722,13 +722,15 @@ int perturb_indices_of_perturbs(
       class_define_index(ppt->index_tp_psi,        ppt->has_source_psi,       index_type,1);
       class_define_index(ppt->index_tp_L,          ppt->has_source_L,       index_type,1);
       class_define_index(ppt->index_tp_L_prime,    ppt->has_source_L_prime, index_type,1);
-	  class_define_index(ppt->index_tp_delta_N,    ppt->has_source_L_prime, index_type,1);
-          class_define_index(ppt->index_tp_theta_N,    ppt->has_source_L_prime, index_type,1);
-          class_define_index(ppt->index_tp_delta_Nb,    ppt->has_source_L_prime, index_type,1);
-          class_define_index(ppt->index_tp_theta_Nb,    ppt->has_source_L_prime, index_type,1);
-	  class_define_index(ppt->index_tp_H_T_nm,    ppt->has_source_L_prime, index_type,1);
-	  class_define_index(ppt->index_tp_A_nm,    ppt->has_source_L_prime, index_type,1);
-	  class_define_index(ppt->index_tp_B_nm,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_delta_N,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_theta_N,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_delta_Nb,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_theta_Nb,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_H_T_nm,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_A_nm,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_B_nm,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_CHT_chi,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_CHT_sigma,    ppt->has_source_L_prime, index_type,1);
 
       ppt->tp_size[index_md] = index_type;
 
@@ -2508,6 +2510,10 @@ int perturb_prepare_output(struct background * pba,
       class_store_columntitle(ppt->scalar_titles, "HCAnb", ppt->has_spatial_gauge_transfers);
       class_store_columntitle(ppt->scalar_titles, "HCAnb_prime", ppt->has_spatial_gauge_transfers);
 
+      class_store_columntitle(ppt->scalar_titles, "CHT_chi", ppt->has_spatial_gauge_transfers);
+      class_store_columntitle(ppt->scalar_titles, "CHT_sigma", ppt->has_spatial_gauge_transfers);
+
+
       ppt->number_of_scalar_titles =
         get_number_of_titles(ppt->scalar_titles);
     }
@@ -3134,13 +3140,15 @@ int perturb_vector_init(
 
     /* spatial gauge displacement L and derivative L'*/
 	
-	if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
+    if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
       class_define_index(ppv->index_pt_L,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
       class_define_index(ppv->index_pt_L_prime,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
       class_define_index(ppv->index_pt_delta_N,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
       class_define_index(ppv->index_pt_theta_N,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
       class_define_index(ppv->index_pt_delta_Nb,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
       class_define_index(ppv->index_pt_theta_Nb,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+      class_define_index(ppv->index_pt_CHT_chi,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
+      class_define_index(ppv->index_pt_CHT_sigma,ppt->has_spatial_gauge_transfers == _TRUE_,index_pt,1);
     }
     
 
@@ -3542,6 +3550,10 @@ int perturb_vector_init(
         ppv->y[ppv->index_pt_theta_N] = theta_cdm_plus_b_nb;
         ppv->y[ppv->index_pt_delta_Nb] = delta_cdm_plus_b_nb;
         ppv->y[ppv->index_pt_theta_Nb] = theta_cdm_plus_b_nb;
+
+        ppv->y[ppv->index_pt_CHT_chi] = 0.;
+        ppv->y[ppv->index_pt_CHT_sigma] = 0.;
+
 		  
         //other quants
 		 
@@ -3646,6 +3658,10 @@ int perturb_vector_init(
             ppw->pv->y[ppw->pv->index_pt_delta_Nb];
           ppv->y[ppv->index_pt_theta_Nb] =
             ppw->pv->y[ppw->pv->index_pt_theta_Nb];
+          ppv->y[ppv->index_pt_CHT_chi] =
+            ppw->pv->y[ppw->pv->index_pt_CHT_chi];
+          ppv->y[ppv->index_pt_CHT_sigma] =
+            ppw->pv->y[ppw->pv->index_pt_CHT_sigma];
 		
       }
 
@@ -6296,6 +6312,8 @@ int perturb_sources(
       double theta_N = theta_nb;
       double delta_Nb_evo =  delta_cdm_plus_b_nb;
       double theta_Nb_evo =  theta_nb;
+      double CHT_chi = 0.;
+      double CHT_sigma = 0.;
 
 
       if (ppw->approx[ppw->index_ap_levo] == (int)levo_on){
@@ -6303,6 +6321,8 @@ int perturb_sources(
         theta_N = y[ppw->pv->index_pt_theta_N];
         delta_Nb_evo = y[ppw->pv->index_pt_delta_Nb];
         theta_Nb_evo = y[ppw->pv->index_pt_theta_Nb];
+        CHT_chi = y[ppw->pv->index_pt_CHT_chi];
+        CHT_sigma = y[ppw->pv->index_pt_CHT_sigma];
       }
       _set_source_(  ppt->index_tp_L_prime) =  ppw->PhiExtra;//delta_N; // (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; //
       //  here instead of the derivative (delta_N- delta_cdm_plus_b_nb)/k provides an alternative way to compute L for testing.
@@ -6313,8 +6333,8 @@ int perturb_sources(
       _set_source_(  ppt->index_tp_H_T_nm) =  - 3./k/k* ppw->HCtheta_p_old - 3. * y[ppw->pv->index_pt_phi] - k * L_gauge ;
       _set_source_(  ppt->index_tp_A_nm) =  ppw->HCA_nb_old / ppw->pvecback[pba->index_bg_H] / ppw->pvecback[pba->index_bg_a];
       _set_source_(  ppt->index_tp_B_nm) =  theta_nb / k - L_prime_gauge;
-	  
-	
+      _set_source_(  ppt->index_tp_CHT_chi) = CHT_chi;
+      _set_source_(  ppt->index_tp_CHT_sigma) = CHT_sigma;
     }
 
   }
@@ -6704,6 +6724,14 @@ int perturb_print_variables(double tau,
     class_store_double(dataptr, ppw->HCA_nb_old, ppt->has_spatial_gauge_transfers,storeidx);
     class_store_double(dataptr, ppw->HCA_nb_prime, ppt->has_spatial_gauge_transfers,storeidx);
 
+    if (ppw->approx[ppw->index_ap_levo] == (int)levo_on){
+      class_store_double(dataptr, y[ppw->pv->index_pt_CHT_chi], ppt->has_spatial_gauge_transfers,storeidx);
+      class_store_double(dataptr, y[ppw->pv->index_pt_CHT_sigma], ppt->has_spatial_gauge_transfers,storeidx);
+    }
+    else{
+      class_store_double(dataptr, 0., ppt->has_spatial_gauge_transfers,storeidx);
+      class_store_double(dataptr, 0., ppt->has_spatial_gauge_transfers,storeidx);
+    }
     //fprintf(ppw->perturb_output_file,"\n");
 
   }
@@ -7863,6 +7891,23 @@ int perturb_derivs(double tau,
         ppw->PhiExtra =   2.*(ppt->switch_gamma * k*k * gamma +  ppt->switch_radiation_source * 1.5 * a * a *(  radiation_source ))/
           (3*a*a*k*k*(3.*p_ur+3.*p_g));
 
+        /** Differential system for H_T growth factors: */
+        double S_tilde = -ppt->switch_gamma*k*k*gamma - ppt->switch_radiation_source*1.5*a*a*(radiation_source);
+        double Dsigma = pvecback[pba->index_bg_sigma1];
+        double Dchi = pvecback[pba->index_bg_sigma2];
+        double Dsigma_prime = pvecback[pba->index_bg_chi1];
+        double Dchi_prime = pvecback[pba->index_bg_chi2];
+        double denom_chi, denom_sigma;
+        denom_chi = Dchi_prime*Dsigma-Dsigma_prime*Dchi;
+        denom_sigma = Dsigma_prime*Dchi-Dchi_prime*Dsigma;
+        if (denom_chi!=0.)
+          dy[pv->index_pt_CHT_chi] = S_tilde*Dsigma/denom_chi;
+        else
+          dy[pv->index_pt_CHT_chi] = 0.;
+        if (denom_sigma!=0.)
+          dy[pv->index_pt_CHT_sigma] = S_tilde*Dchi/denom_sigma;
+        else
+          dy[pv->index_pt_CHT_sigma] =0.;
       }
 
       // Finally the dynamical euqations for the gauge transformation.

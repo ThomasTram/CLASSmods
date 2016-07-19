@@ -776,6 +776,18 @@ int background_indices(
   /* - index for Omega_r (relativistic density fraction) */
   class_define_index(pba->index_bg_Omega_r,_TRUE_,index_bg,1);
 
+  /* -> density growth factor in dust universe */
+  class_define_index(pba->index_bg_chi1,_TRUE_,index_bg,1);
+
+  /* -> velocity growth factor in dust universe */
+  class_define_index(pba->index_bg_sigma1,_TRUE_,index_bg,1);
+
+    /* -> density growth factor in dust universe */
+  class_define_index(pba->index_bg_chi2,_TRUE_,index_bg,1);
+
+  /* -> velocity growth factor in dust universe */
+  class_define_index(pba->index_bg_sigma2,_TRUE_,index_bg,1);
+
   /* - put here additional ingredients that you want to appear in the
      normal vector */
   /*    */
@@ -849,6 +861,12 @@ int background_indices(
 
   /* -> integral for growth factor */
   class_define_index(pba->index_bi_growth,_TRUE_,index_bi,1);
+
+  /* -> density growth factors */
+  class_define_index(pba->index_bi_chi1,_TRUE_,index_bi,1);
+  class_define_index(pba->index_bi_sigma1,_TRUE_,index_bi,1);
+  class_define_index(pba->index_bi_chi2,_TRUE_,index_bi,1);
+  class_define_index(pba->index_bi_sigma2,_TRUE_,index_bi,1);
 
   /* -> index for conformal time in vector of variables to integrate */
   class_define_index(pba->index_bi_tau,_TRUE_,index_bi,1);
@@ -1578,6 +1596,13 @@ int background_solve(
     pvecback[pba->index_bg_lum_distance] = pba->a_today*comoving_radius*(1.+pba->z_table[i]);
     pvecback[pba->index_bg_rs] = pData[i*pba->bi_size+pba->index_bi_rs];
 
+    /* -> Store the chis and sigmas */
+    pvecback[pba->index_bg_chi1] = pData[i*pba->bi_size+pba->index_bi_chi1];
+    pvecback[pba->index_bg_sigma1] = pData[i*pba->bi_size+pba->index_bi_sigma1];
+    pvecback[pba->index_bg_chi2] = pData[i*pba->bi_size+pba->index_bi_chi2];
+    pvecback[pba->index_bg_sigma2] = pData[i*pba->bi_size+pba->index_bi_sigma2];
+
+
     /* -> compute all other quantities depending only on {B} variables.
        The value of {B} variables in pData are also copied to pvecback.*/
     class_call(background_functions(pba,pData+i*pba->bi_size, pba->long_info, pvecback),
@@ -1855,6 +1880,12 @@ int background_initial_conditions(
       normalization */
   pvecback_integration[pba->index_bi_growth] = 1./(4.*a*a*pvecback[pba->index_bg_H]*pvecback[pba->index_bg_H]*pvecback[pba->index_bg_H]);
 
+  /** Set initial conditions for chi and sigma */
+  pvecback_integration[pba->index_bi_chi1] = 0.;
+  pvecback_integration[pba->index_bi_sigma1] = 1.;
+  pvecback_integration[pba->index_bi_chi2] = 1.;
+  pvecback_integration[pba->index_bi_sigma2] = 0.;
+
   return _SUCCESS_;
 
 }
@@ -1908,6 +1939,12 @@ int background_output_titles(struct background * pba,
   class_store_columntitle(titles,"gr.fac. D",_TRUE_);
   class_store_columntitle(titles,"gr.fac. f",_TRUE_);
 
+  class_store_columntitle(titles,"chi1",_TRUE_);
+  class_store_columntitle(titles,"sigma1",_TRUE_);
+  class_store_columntitle(titles,"chi2",_TRUE_);
+  class_store_columntitle(titles,"sigma2",_TRUE_);
+
+
   return _SUCCESS_;
 }
 
@@ -1957,6 +1994,12 @@ int background_output_data(
 
     class_store_double(dataptr,pvecback[pba->index_bg_D],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_f],_TRUE_,storeidx);
+
+    class_store_double(dataptr,pvecback[pba->index_bg_chi1],_TRUE_,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_sigma1],_TRUE_,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_chi2],_TRUE_,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_sigma2],_TRUE_,storeidx);
+
   }
 
   return _SUCCESS_;
@@ -2004,6 +2047,7 @@ int background_derivs(
   struct background_parameters_and_workspace * pbpaw;
   struct background * pba;
   double * pvecback;
+  double a, H, rho_cdm;
 
   pbpaw = parameters_and_workspace;
   pba =  pbpaw->pba;
@@ -2056,6 +2100,17 @@ int background_derivs(
        + y[pba->index_bi_a]*dV_scf(pba,y[pba->index_bi_phi_scf])) ;
   }
 
+  /** Differential system for chi and sigma */
+  if (pba->has_cdm == _TRUE_)
+    rho_cdm = pvecback[pba->index_bg_rho_cdm];
+  else
+    rho_cdm = 0.;
+  a =  y[pba->index_bi_a];
+  H = pvecback[pba->index_bg_H];
+  dy[pba->index_bi_chi1] = -a*H*y[pba->index_bi_chi1] + 1.5*a*a*rho_cdm*y[pba->index_bi_sigma1];
+  dy[pba->index_bi_sigma1] = y[pba->index_bi_chi1];
+  dy[pba->index_bi_chi2] = -a*H*y[pba->index_bi_chi2] + 1.5*a*a*rho_cdm*y[pba->index_bi_sigma2];
+  dy[pba->index_bi_sigma2] = y[pba->index_bi_chi2];
 
   return _SUCCESS_;
 

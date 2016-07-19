@@ -188,6 +188,11 @@ struct background
   int index_bg_D;             /**< density growth factor in dust universe, D = H \int [da/(aH)^3] (arbitrary normalization) */
   int index_bg_f;             /**< velocity growth factor in dust universe, [dlnD]/[dln a] */
 
+  int index_bg_chi1;          /** One of the independent growth solutions. */
+  int index_bg_sigma1;        /** One of the independent growth solutions. */
+  int index_bg_chi2;          /** One of the independent growth solutions. */
+  int index_bg_sigma2;        /** One of the independent growth solutions. */
+
   int bg_size_short;  /**< size of background vector in the "short format" */
   int bg_size_normal; /**< size of background vector in the "normal format" */
   int bg_size;        /**< size of background vector in the "long format" */
@@ -238,6 +243,11 @@ struct background
   int index_bi_rs;      /**< {C} sound horizon */
   int index_bi_tau;     /**< {C} conformal time in Mpc */
   int index_bi_growth;  /**< {C} integral over [da/(aH)^3]=[dtau/(aH^2)], useful for growth factor */
+
+  int index_bi_chi1;          /** {C} One of the independent growth solutions. */
+  int index_bi_sigma1;        /** {C} One of the independent growth solutions. */
+  int index_bi_chi2;          /** {C} One of the independent growth solutions. */
+  int index_bi_sigma2;        /** {C} One of the independent growth solutions. */
 
   int bi_B_size;        /**< Number of {B} parameters */
   int bi_size;          /**< Number of {B}+{C} parameters */
