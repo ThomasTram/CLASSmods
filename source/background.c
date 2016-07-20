@@ -2102,7 +2102,7 @@ int background_derivs(
 
   /** Differential system for chi and sigma */
   if (pba->has_cdm == _TRUE_)
-    rho_cdm = pvecback[pba->index_bg_rho_cdm];
+    rho_cdm = pvecback[pba->index_bg_rho_cdm] +  pvecback[pba->index_bg_rho_b] ;
   else
     rho_cdm = 0.;
   a =  y[pba->index_bi_a];
