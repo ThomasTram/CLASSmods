@@ -1195,6 +1195,8 @@ cdef class Class:
                 value = self.ba.h
             elif name == 'H0':
                 value = self.ba.h*100
+            elif name == 'H234':
+                value = self.Hubble(2.34)*3e5
             elif name == 'Omega0_lambda' or name == 'Omega_Lambda':
                 value = self.ba.Omega0_lambda
             elif name == 'Omega0_scf' or name == 'Omega_scf':

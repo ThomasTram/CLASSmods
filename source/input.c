@@ -1014,16 +1014,20 @@ int input_read_parameters(
     class_call(parser_read_double(pfc,"scf_veta",&param1,&flag1,errmsg),
 	       errmsg,
 	       errmsg);
-    class_call(parser_read_double(pfc,"scf_bigveta",&param2,&flag2,errmsg),
+    class_call(parser_read_double(pfc,"scf_log10minusveta",&param2,&flag2,errmsg),
 	       errmsg,
 	       errmsg);
+    /**    class_call(parser_read_double(pfc,"scf_bigveta",&param2,&flag2,errmsg),
+	       errmsg,
+	       errmsg);*/
     class_test((flag1 == _TRUE_) && (flag2 == _TRUE_),
 	       errmsg,
 	       "In input file, you cannot enter both scf_veta and scf_bigveta, choose one");
     if (flag1 == _TRUE_)
       pba->scf_veta = param1;
     else if (flag2 == _TRUE_)
-      pba->scf_veta = param2*(1.-scf_lambda*scf_lambda/4.5);
+      pba->scf_veta = -pow(10.0,param2);
+    //      pba->scf_veta = param2*(1.-scf_lambda*scf_lambda/4.5);
     //printf("scf_veta = %g\n",pba->scf_veta);
 
     if ((abs(scf_lambda) <3.)&&(pba->background_verbose>1))
@@ -1937,7 +1941,7 @@ int input_read_parameters(
 
   }
 
-  if ((ppt->has_pk_matter == _TRUE_) || (ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_)) {
+  if ((_TRUE_==_TRUE_) || (ppt->has_pk_matter == _TRUE_) || (ppt->has_density_transfers == _TRUE_) || (ppt->has_velocity_transfers == _TRUE_)) {
 
     class_call(parser_read_double(pfc,"P_k_max_h/Mpc",&param1,&flag1,errmsg),
                errmsg,
