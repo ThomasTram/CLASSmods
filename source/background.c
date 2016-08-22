@@ -1882,8 +1882,8 @@ int background_initial_conditions(
 
   /** Set initial conditions for chi and sigma */
   pvecback_integration[pba->index_bi_chi1] = 0.;
-  pvecback_integration[pba->index_bi_sigma1] = 1.;
-  pvecback_integration[pba->index_bi_chi2] = 1.;
+  pvecback_integration[pba->index_bi_sigma1] = 0.;
+  pvecback_integration[pba->index_bi_chi2] = 0.;
   pvecback_integration[pba->index_bi_sigma2] = 0.;
 
   return _SUCCESS_;
@@ -2107,10 +2107,13 @@ int background_derivs(
     rho_cdm = 0.;
   a =  y[pba->index_bi_a];
   H = pvecback[pba->index_bg_H];
+  double H_prime =  pvecback[pba->index_bg_H_prime];
+  double GStau = 10.0;
+  double Gs = 1./(GStau*_SQRT_PI_)*exp(-pow((tau-1000.0)/GStau,2));
   dy[pba->index_bi_chi1] = -a*H*y[pba->index_bi_chi1] + 1.5*a*a*rho_cdm*y[pba->index_bi_sigma1];
-  dy[pba->index_bi_sigma1] = y[pba->index_bi_chi1];
-  dy[pba->index_bi_chi2] = -a*H*y[pba->index_bi_chi2] + 1.5*a*a*rho_cdm*y[pba->index_bi_sigma2];
-  dy[pba->index_bi_sigma2] = y[pba->index_bi_chi2];
+  dy[pba->index_bi_sigma1] = y[pba->index_bi_chi1] + Gs;
+  dy[pba->index_bi_chi2] = -a*H*y[pba->index_bi_chi2] + 1.5*a*a*rho_cdm*y[pba->index_bi_sigma2] + Gs*a*H;
+  dy[pba->index_bi_sigma2] = y[pba->index_bi_chi2] + Gs*(a*a*H*H+a*H_prime);
 
   return _SUCCESS_;
 
