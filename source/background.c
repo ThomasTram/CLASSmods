@@ -788,6 +788,11 @@ int background_indices(
   /* -> velocity growth factor in dust universe */
   class_define_index(pba->index_bg_decay,_TRUE_,index_bg,1);
 
+  /** Indices for backwards solution */
+  class_define_index(pba->index_bg_bwdec_prime,_TRUE_,index_bg,1);
+  class_define_index(pba->index_bg_bwdec,_TRUE_,index_bg,1);
+
+
   /* - put here additional ingredients that you want to appear in the
      normal vector */
   /*    */
@@ -1631,6 +1636,70 @@ int background_solve(
              gTable.error_message,
              pba->error_message);
 
+  /** We now want to solve the matter ODE backwards in time to find the decaying solution.
+      Just use Runge-Kutta */
+
+  /** We will interpolate values now so that we can use the interpolation routines already coded,
+      and then we will reinterpolate after to get the decaying mode stored. */
+
+  /** - fill tables of second derivatives (in view of spline interpolation) */
+  class_call(array_spline_table_lines(pba->z_table,
+                                      pba->bt_size,
+                                      pba->tau_table,
+                                      1,
+                                      pba->d2tau_dz2_table,
+                                      _SPLINE_EST_DERIV_,
+                                      pba->error_message),
+             pba->error_message,
+             pba->error_message);
+
+  class_call(array_spline_table_lines(pba->tau_table,
+                                      pba->bt_size,
+                                      pba->background_table,
+                                      pba->bg_size,
+                                      pba->d2background_dtau2_table,
+                                      _SPLINE_EST_DERIV_,
+                                      pba->error_message),
+             pba->error_message,
+             pba->error_message);
+
+  class_call(initialize_generic_integrator(2,&gi),
+             gi.error_message,
+             pba->error_message);
+  double yinout[2];
+  i = pba->bg_size-1;
+  //yinout[0] = -2.*pba->background_table[i*pba->bg_size+pba->index_bg_H]*pba->background_table[i*pba->bg_size+pba->index_bg_f];
+  yinout[0] = 0.;
+  yinout[1] = 1.;
+  pba->background_table[i*pba->bg_size+pba->index_bg_bwdec_prime] = yinout[0];
+  pba->background_table[i*pba->bg_size+pba->index_bg_bwdec] = yinout[1];
+
+  for (i=pba->bt_size-1; i>=1; i--){
+    printf("%d, %.4e, %.4e\n",i,yinout[0],yinout[1]);
+    /* -> perform one step */
+    class_call(generic_integrator(background_bwderivs,
+                                  pba->tau_table[i],
+                                  pba->tau_table[i-1],
+                                  yinout,
+                                  &bpaw,
+                                  ppr->tol_background_integration,
+                                  ppr->smallest_allowed_variation,
+                                  &gi),
+               gi.error_message,
+               pba->error_message);
+    pba->background_table[i*pba->bg_size+pba->index_bg_bwdec_prime] = yinout[0];
+    pba->background_table[i*pba->bg_size+pba->index_bg_bwdec] = yinout[1];
+  }
+  pba->background_table[0*pba->bg_size+pba->index_bg_bwdec_prime] = yinout[0];
+  pba->background_table[0*pba->bg_size+pba->index_bg_bwdec] = yinout[1];
+
+
+  /** - clean up generic integrator with cleanup_generic_integrator() */
+  class_call(cleanup_generic_integrator(&gi),
+             gi.error_message,
+             pba->error_message);
+
+
   /** - fill tables of second derivatives (in view of spline interpolation) */
   class_call(array_spline_table_lines(pba->z_table,
                                       pba->bt_size,
@@ -1882,7 +1951,7 @@ int background_initial_conditions(
 
   /** Set initial conditions for chi and sigma */
   pvecback_integration[pba->index_bi_grow_prime] = a*a*pvecback[pba->index_bg_H];
-  pvecback_integration[pba->index_bi_grow] = a*;
+  pvecback_integration[pba->index_bi_grow] = a;
   pvecback_integration[pba->index_bi_Wronskian] = 1.;
   pvecback_integration[pba->index_bi_decay] = 1.;
 
@@ -1944,6 +2013,9 @@ int background_output_titles(struct background * pba,
   class_store_columntitle(titles,"Wronskian",_TRUE_);
   class_store_columntitle(titles,"decay",_TRUE_);
 
+  class_store_columntitle(titles,"bwdec_prime",_TRUE_);
+  class_store_columntitle(titles,"bwdec",_TRUE_);
+
 
   return _SUCCESS_;
 }
@@ -1999,6 +2071,8 @@ int background_output_data(
     class_store_double(dataptr,pvecback[pba->index_bg_grow],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_Wronskian],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_decay],_TRUE_,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_bwdec_prime],_TRUE_,storeidx);
+    class_store_double(dataptr,pvecback[pba->index_bg_bwdec],_TRUE_,storeidx);
 
   }
 
@@ -2115,6 +2189,57 @@ int background_derivs(
   dy[pba->index_bi_Wronskian] = -a*H*y[pba->index_bi_Wronskian];
   dy[pba->index_bi_decay] = y[pba->index_bi_grow_prime]/y[pba->index_bi_grow]*y[pba->index_bi_decay]-y[pba->index_bi_Wronskian]/y[pba->index_bi_grow];
   fprintf(stderr,"%.2e %.2e, %.2e\n",a,y[pba->index_bi_grow_prime]/y[pba->index_bi_grow]*y[pba->index_bi_decay],y[pba->index_bi_Wronskian]/y[pba->index_bi_grow]);
+
+  return _SUCCESS_;
+
+}
+
+int background_bwderivs(
+                      double tau,
+                      double* y, /* vector with argument y[index_bi] (must be already allocated with size pba->bi_size) */
+                      double* dy, /* vector with argument dy[index_bi]
+                                     (must be already allocated with
+                                     size pba->bi_size) */
+                      void * parameters_and_workspace,
+                      ErrorMsg error_message
+                      ) {
+
+  /** Summary: */
+
+  /** - define local variables */
+
+  struct background_parameters_and_workspace * pbpaw;
+  struct background * pba;
+  double * pvecback;
+  double a, H, H_prime, rho_cdm;
+  int last_index = 0;
+
+
+
+  pbpaw = parameters_and_workspace;
+  pba =  pbpaw->pba;
+  pvecback = pbpaw->pvecback;
+
+
+  class_call(background_at_tau(pba,
+                               tau,
+                               pba->normal_info,
+                               pba->inter_normal,
+                               &last_index,
+                               pvecback),
+             pba->error_message,
+             error_message);
+
+  /** Differential system for decaying mode */
+  if (pba->has_cdm == _TRUE_)
+    rho_cdm = pvecback[pba->index_bg_rho_cdm] +  pvecback[pba->index_bg_rho_b] ;
+  else
+    rho_cdm = 0.;
+  a =  pvecback[pba->index_bg_a];
+  H = pvecback[pba->index_bg_H];
+  H_prime =  pvecback[pba->index_bg_H_prime];
+  dy[0] = -a*H*y[0] + 1.5*a*a*rho_cdm*y[1];
+  dy[1] = y[0];
 
   return _SUCCESS_;
 

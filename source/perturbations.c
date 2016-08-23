@@ -7894,12 +7894,16 @@ int perturb_derivs(double tau,
         /** Differential system for H_T growth factors: */
         double S_tilde = -ppt->switch_gamma*k*k*gamma - ppt->switch_radiation_source*1.5*a*a*(radiation_source);
         double Dgrow = pvecback[pba->index_bg_grow];
-        double Ddecay = pvecback[pba->index_bg_decay];
+        double Ddecay = pvecback[pba->index_bg_bwdec];
         double denom_grow, denom_decay;
         //denom_chi = Dchi_prime*Dsigma-Dsigma_prime*Dchi;
         //denom_sigma = Dsigma_prime*Dchi-Dchi_prime*Dsigma;
-        denom_grow = pvecback[pba->index_bg_Wronskian];
-        denom_decay = -pvecback[pba->index_bg_Wronskian];
+        //denom_grow = pvecback[pba->index_bg_Wronskian];
+        //denom_decay = -pvecback[pba->index_bg_Wronskian];
+        double Wronskian =  pvecback[pba->index_bg_grow]* pvecback[pba->index_bg_bwdec_prime]-
+          pvecback[pba->index_bg_grow_prime]* pvecback[pba->index_bg_bwdec];
+        denom_grow = -Wronskian;
+        denom_decay = Wronskian;
         if (denom_grow!=0.)
           dy[pv->index_pt_CHT_grow] = S_tilde*Ddecay/denom_grow;
         else

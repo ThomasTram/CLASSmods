@@ -193,6 +193,9 @@ struct background
   int index_bg_Wronskian;          /** One of the independent growth solutions. */
   int index_bg_decay;        /** One of the independent growth solutions. */
 
+  int index_bg_bwdec_prime;
+  int index_bg_bwdec;
+
   int bg_size_short;  /**< size of background vector in the "short format" */
   int bg_size_normal; /**< size of background vector in the "normal format" */
   int bg_size;        /**< size of background vector in the "long format" */
@@ -470,7 +473,17 @@ extern "C" {
 			 double * dy,
 			 void * parameters_and_workspace,
 			 ErrorMsg error_message
-			 );
+                         );
+
+  int background_bwderivs(
+                      double tau,
+                      double* y, /* vector with argument y[index_bi] (must be already allocated with size pba->bi_size) */
+                      double* dy, /* vector with argument dy[index_bi]
+                                     (must be already allocated with
+                                     size pba->bi_size) */
+                      void * parameters_and_workspace,
+                      ErrorMsg error_message
+                          );
 
   /** Scalar field potential and its derivatives **/
   double V_scf(
