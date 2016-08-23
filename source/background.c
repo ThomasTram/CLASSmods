@@ -535,8 +535,15 @@ int background_init(
 
       printf(" -> total N_eff = %g (sumed over ultra-relativistic and ncdm species)\n",Neff);
 
+      if (pba->Omega0_inu > 0.) {
+      printf(" -> inu species sampled with %d points for purpose of perturbation integration.\n",
+               pba->q_size_inu);
+      }
+
     }
   }
+
+  
 
   /** - assign values to all indices in vectors of background quantities with background_indices()*/
   class_call(background_indices(pba),
@@ -1058,20 +1065,19 @@ int background_ncdm_distribution(
 int background_inu_distribution(
                                  void * pbadist,
                                  double q,
-                                 double * f0
+                                 double *f0
                                  ) {
   struct background * pba;
-  struct background_parameters_for_distributions * pbadist_local;
+  struct background_parameters_for_distributions * pbadist_local; 
   int lastidx;
   double qlast,dqlast,f0last,df0last;
   double param;
 
     /* Isabel: For the massless case, we have to read in and interpolate files of the background distribution here, see ncdm.
 
-    /*    FERMI-DIRAC  */
-    /* Isabel: This definition counts already for neutrinos AND anti-neutrinos */
+    /* NEW3: Should not use Fermi-Dirac, but Maxwell-Boltzmann with the corresponding normalization factor N=3/4*Zeta(3). In contrast to ncdm this definition does NOT count for neutrinos AND anti-neutrinos and also does NOT include the factor 1/(2Pi)^3. */
 
-    *f0 = 2.0/pow(2*_PI_,3)*(1./(exp(q)+1.));
+   *f0 =  2./pow(2*_PI_,3.)*3./4.*_zeta3_*exp(-q);
 
   return _SUCCESS_;
 }
@@ -1114,10 +1120,17 @@ int background_inu_test_function(
   double c = 2.0/(3.0*_zeta3_);
   double d = 120.0/(7.0*pow(_PI_,4));
   double e = 2.0/(45.0*_zeta5_);
+  double step = 5.;
 
   /** Using a + bq creates problems for otherwise acceptable distributions
       which diverges as 1/r or 1/r^2 for r->0 */
   *test = pow(2.0*_PI_,3)/6.0*(c*q*q-d*q*q*q-e*q*q*q*q);
+  if (q<step){
+  *test = (*test)*step/(exp(step)); 
+  }
+  else {
+  *test = (*test)*q/(exp(q));
+  } 
 
   return _SUCCESS_;
 }
@@ -1330,6 +1343,8 @@ int background_inu_init(
   /* Handle perturbation qsampling: */
   class_alloc(pba->q_inu,_QUADRATURE_MAX_*sizeof(double),pba->error_message);
   class_alloc(pba->w_inu,_QUADRATURE_MAX_*sizeof(double),pba->error_message);
+
+  printf("tol_inu = %g\n",ppr->tol_inu);
 
   class_call(get_qsampling(pba->q_inu,
                            pba->w_inu,

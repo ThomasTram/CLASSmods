@@ -2495,6 +2495,12 @@ int perturb_prepare_output(struct background * pba,
       class_store_columntitle(ppt->scalar_titles,"shear_inu",pba->has_inu);
       class_store_columntitle(ppt->scalar_titles,"cs2_inu",pba->has_inu);
 
+      //NEW3:
+      class_store_columntitle(ppt->scalar_titles,"inu_number_conservation",pba->has_inu);
+      class_store_columntitle(ppt->scalar_titles,"inu_energy_conservation",pba->has_inu);
+      class_store_columntitle(ppt->scalar_titles,"inu_momentum_conservation",pba->has_inu);
+      class_store_columntitle(ppt->scalar_titles,"inu_quadrupole_violation",pba->has_inu);
+
       /* Decaying cold dark matter */
       class_store_columntitle(ppt->scalar_titles, "delta_dcdm", pba->has_dcdm);
       class_store_columntitle(ppt->scalar_titles, "theta_dcdm", pba->has_dcdm);
@@ -2541,6 +2547,12 @@ int perturb_prepare_output(struct background * pba,
       class_store_columntitle(ppt->tensor_titles,"delta_inu",ppt->evolve_tensor_inu);
       class_store_columntitle(ppt->tensor_titles,"theta_inu",ppt->evolve_tensor_inu);
       class_store_columntitle(ppt->tensor_titles,"shear_inu",ppt->evolve_tensor_inu);
+
+      // NEW3:
+      class_store_columntitle(ppt->tensor_titles,"inu_number_conservation",ppt->evolve_tensor_inu);
+      class_store_columntitle(ppt->tensor_titles,"inu_energy_conservation",ppt->evolve_tensor_inu);
+      class_store_columntitle(ppt->tensor_titles,"inu_momentum_conservation",ppt->evolve_tensor_inu);
+      class_store_columntitle(ppt->tensor_titles,"inu_quadrupole_violation",pba->has_inu);
 
       ppt->number_of_tensor_titles =
         get_number_of_titles(ppt->tensor_titles);
@@ -5364,6 +5376,13 @@ int perturb_total_stress_energy(
   double rho_dr_over_f;
   double delta_rho_scf, delta_p_scf, psi;
 
+  int index_qpr, index_l, lmax, Nq;
+  double qpr;
+  double * dy_scat;
+  double * Z;
+  double inu_number_conservation=0., inu_energy_conservation=0., inu_momentum_conservation=0., inu_quadrupole_violation=0.;
+
+
   /** - wavenumber and scale factor related quantities */
 
   a = ppw->pvecback[pba->index_bg_a];
@@ -5580,26 +5599,58 @@ int perturb_total_stress_energy(
       delta_p_inu = 0.0;
       factor = pba->factor_inu*pow(pba->a_today/a,4);
 
+      //NEW3:
+      inu_number_conservation = 0.0;
+      inu_energy_conservation = 0.0;
+      inu_momentum_conservation = 0.0;
+      inu_quadrupole_violation = 0.0;
+
       for (index_q=0; index_q < ppw->pv->q_size_inu; index_q ++) {
 
         q = pba->q_inu[index_q];
         q2 = q*q;
 
+        Nq = ppw->pv->q_size_inu;
+        lmax = ppw->pv->l_max_inu;
+        Z = ppw->inu_scattering_kernel;
+        dy_scat = ppw->dy_scat;
+        inu_number_conservation = ppw->inu_number_conservation;
+        inu_energy_conservation = ppw->inu_energy_conservation;
+        inu_momentum_conservation = ppw->inu_momentum_conservation;
+        inu_quadrupole_violation = ppw->inu_quadrupole_violation; 
+
+        for(index_l=0; index_l <= 3; index_l++){
+          dy_scat[index_l] = 0.0;
+          for(index_qpr=0; index_qpr <Nq; index_qpr++){
+            qpr = pba->q_inu[index_qpr];
+           dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*pba->w_inu[index_qpr]*
+            y[ppw->pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]; 
+          }
+        }
+
         rho_delta_inu += q2*q*pba->w_inu[index_q]*y[idx];
         rho_plus_p_theta_inu += q2*q*pba->w_inu[index_q]*y[idx+1];
         rho_plus_p_shear_inu += q2*q*pba->w_inu[index_q]*y[idx+2];
-        delta_p_inu += q2*q*pba->w_inu[index_q]*y[idx];
+        delta_p_inu += q2*q*pba->w_inu[index_q]*y[idx];       
+
+        inu_number_conservation += q*q*pba->w_inu[index_q]*(ppw->dy_scat[0]-40./3.*q*y[idx]);
+        inu_energy_conservation += q*q2*pba->w_inu[index_q]*(ppw->dy_scat[0]-40./3.*q*y[idx]);
+        inu_momentum_conservation += q*q2*pba->w_inu[index_q]*(ppw->dy_scat[1]-40./3.*q*y[idx+1]);
+        inu_quadrupole_violation += q*q2*pba->w_inu[index_q]*(ppw->dy_scat[2]-40./3.*q*y[idx+2]); 
 
         //Jump to next momentum bin:
         idx+=(ppw->pv->l_max_inu+1);
       }
 
-      /* printf(" -> inu with rho_delta_inu = %e\n", rho_delta_inu); */
-
       rho_delta_inu *= factor;
       rho_plus_p_theta_inu *= k*factor;
       rho_plus_p_shear_inu *= 2.0/3.0*factor;
       delta_p_inu *= factor/3.;
+
+      inu_number_conservation /= rho_delta_inu;
+      inu_energy_conservation /= rho_delta_inu;
+      inu_momentum_conservation /= rho_plus_p_theta_inu;
+      inu_quadrupole_violation /= rho_plus_p_shear_inu; 
 
       /* Isabel: Multiplying by number of inu, since pvecback[pba->index_bg_rho_inu] is defined for ALL species, but rho_delta_inu only for ONE species.*/
       /* Thomas: We will compute the total energy density perturbation for inu, then we don't need N_inu. (We do this by changing pba->factor_inu). */
@@ -6377,6 +6428,7 @@ int perturb_print_variables(double tau,
   /** ncdm sector ends */
  /** inu sector begin */
   double delta_inu=0., theta_inu=0., shear_inu=0., delta_p_over_delta_rho_inu=0.;
+  double inu_number_conservation=0., inu_energy_conservation=0., inu_momentum_conservation=0., inu_quadrupole_violation=0.;
   double rho_inu_bg, p_inu_bg, w_inu;
   double rho_delta_inu = 0.0;
   double rho_plus_p_theta_inu = 0.0;
@@ -6390,6 +6442,10 @@ int perturb_print_variables(double tau,
   int idx,index_q, storeidx;
   double *dataptr;
 
+  int index_qpr, index_l, lmax, Nq;
+  double qpr;
+  double * dy_scat;
+  double * Z;
 
   /** - rename structure fields (just to avoid heavy notations) */
 
@@ -6575,10 +6631,41 @@ int perturb_print_variables(double tau,
       delta_p_inu = 0.0;
       factor = pba->factor_inu*pow(pba->a_today/a,4);
 
+      // NEW3:
+
+      inu_number_conservation = 0.0;
+      inu_energy_conservation = 0.0;
+      inu_momentum_conservation = 0.0;
+      inu_quadrupole_violation =0.0;
+
       for (index_q=0; index_q < ppw->pv->q_size_inu; index_q ++) {
 
         q = pba->q_inu[index_q];
         q2 = q*q;
+
+        Nq = ppw->pv->q_size_inu;
+        lmax = ppw->pv->l_max_inu;
+        Z = ppw->inu_scattering_kernel;
+        dy_scat = ppw->dy_scat;
+        inu_number_conservation = ppw->inu_number_conservation;
+        inu_energy_conservation = ppw->inu_energy_conservation;
+        inu_momentum_conservation = ppw->inu_momentum_conservation;
+        inu_quadrupole_violation = ppw->inu_quadrupole_violation; 
+
+        for(index_l=0; index_l <= 3; index_l++){
+          dy_scat[index_l] = 0.0;
+          for(index_qpr=0; index_qpr <Nq; index_qpr++){
+          qpr = pba->q_inu[index_qpr];
+            dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*pba->w_inu[index_qpr]*
+            y[ppw->pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]; 
+            
+          }
+        }
+
+        inu_number_conservation += q*q*pba->w_inu[index_q]*(dy_scat[0]-40./3.*q*y[idx]);
+        inu_energy_conservation += q*q*q*pba->w_inu[index_q]*(dy_scat[0]-40./3.*q*y[idx]);
+        inu_momentum_conservation += q*q*q*pba->w_inu[index_q]*(dy_scat[1]-40./3.*q*y[idx+1]);
+        inu_quadrupole_violation += q*q*q*pba->w_inu[index_q]*(dy_scat[2]-40./3.*q*y[idx+2]);
 
         rho_delta_inu += q2*q*pba->w_inu[index_q]*y[idx];
         rho_plus_p_theta_inu += q2*q*pba->w_inu[index_q]*y[idx+1];
@@ -6600,6 +6687,11 @@ int perturb_print_variables(double tau,
       shear_inu = rho_plus_p_shear_inu/
         (4.0/3.0*ppw->pvecback[pba->index_bg_rho_inu]);
       delta_p_over_delta_rho_inu = delta_p_inu/rho_delta_inu;
+
+      inu_number_conservation /= rho_delta_inu;
+      inu_energy_conservation /= rho_delta_inu;
+      inu_momentum_conservation /= rho_plus_p_theta_inu;
+      inu_quadrupole_violation /= rho_plus_p_shear_inu; 
 
     } /* close if-inu */
 
@@ -6740,6 +6832,11 @@ int perturb_print_variables(double tau,
     class_store_double(dataptr, theta_inu, pba->has_inu, storeidx);
     class_store_double(dataptr, shear_inu, pba->has_inu, storeidx);
     class_store_double(dataptr, delta_p_over_delta_rho_inu,  pba->has_inu, storeidx);
+    //NEW3:
+    class_store_double(dataptr, inu_number_conservation, pba->has_inu, storeidx);
+    class_store_double(dataptr, inu_energy_conservation, pba->has_inu, storeidx);
+    class_store_double(dataptr, inu_momentum_conservation, pba->has_inu, storeidx);
+    class_store_double(dataptr, inu_quadrupole_violation, pba->has_inu, storeidx);
     /* Decaying cold dark matter */
     class_store_double(dataptr, delta_dcdm, pba->has_dcdm, storeidx);
     class_store_double(dataptr, theta_dcdm, pba->has_dcdm, storeidx);
@@ -6869,7 +6966,7 @@ int perturb_print_variables(double tau,
       }
     }
 
-    //    fprintf(ppw->perturb_output_file,"\n");
+    //  fprintf(ppw->perturb_output_file,"\n");
 
     /* Interacting Neutrinos */
     if (ppt->evolve_tensor_inu == _TRUE_) {
@@ -6882,15 +6979,41 @@ int perturb_print_variables(double tau,
       delta_p_inu = 0.0;
       factor = pba->factor_inu*pow(pba->a_today/a,4);
 
+      // NEW3:
+
+      inu_number_conservation = 0.0;
+      inu_energy_conservation = 0.0;
+      inu_momentum_conservation = 0.0;
+      inu_quadrupole_violation = 0.0;
+
       for (index_q=0; index_q < ppw->pv->q_size_inu; index_q ++) {
 
         q = pba->q_inu[index_q];
         q2 = q*q;
 
-        rho_delta_inu += q2*q*pba->w_inu[index_q]*y[idx];
-        rho_plus_p_theta_inu += q2*q*pba->w_inu[index_q]*y[idx+1];
-        rho_plus_p_shear_inu += q2*q*pba->w_inu[index_q]*y[idx+2];
-        delta_p_inu += q2*q*pba->w_inu[index_q]*y[idx];
+        Nq = ppw->pv->q_size_inu;
+        lmax = ppw->pv->l_max_inu;
+        Z = ppw->inu_scattering_kernel;
+        dy_scat = ppw->dy_scat;
+        inu_number_conservation = ppw->inu_number_conservation;
+        inu_energy_conservation = ppw->inu_energy_conservation;
+        inu_momentum_conservation = ppw->inu_momentum_conservation;
+        inu_quadrupole_violation = ppw->inu_quadrupole_violation; 
+
+        for(index_l=0; index_l <= 3; index_l++){
+          dy_scat[index_l] = 0.0;
+          for(index_qpr=0; index_qpr <Nq; index_qpr++){
+            qpr = pba->q_inu[index_qpr];
+            dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*pba->w_inu[index_qpr]*
+            y[ppw->pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]; 
+            
+          }
+        }
+
+       inu_number_conservation += q*q*pba->w_inu[index_q]*(dy_scat[0]-40./3.*q*y[idx]);
+       inu_energy_conservation += q*q*q*pba->w_inu[index_q]*(dy_scat[0]-40./3.*q*y[idx]);
+       inu_momentum_conservation += q*q*q*pba->w_inu[index_q]*(dy_scat[1]-40./3.*q*y[idx+1]);
+       inu_quadrupole_violation += q*q*q*pba->w_inu[index_q]*(dy_scat[2]-40./3.*q*y[idx+2]); 
 
         //Jump to next momentum bin:
         idx+=(ppw->pv->l_max_inu+1);
@@ -6907,9 +7030,20 @@ int perturb_print_variables(double tau,
       shear_inu = rho_plus_p_shear_inu/
         (4.0/3.0*ppw->pvecback[pba->index_bg_rho_inu]);
 
+      inu_number_conservation /= rho_delta_inu;
+      inu_energy_conservation /= rho_delta_inu;
+      inu_momentum_conservation /= rho_plus_p_theta_inu;
+      inu_quadrupole_violation /= rho_plus_p_shear_inu; 
+
       class_store_double(dataptr, delta_inu, _TRUE_, storeidx);
       class_store_double(dataptr, theta_inu, _TRUE_, storeidx);
       class_store_double(dataptr, shear_inu, _TRUE_, storeidx);
+
+      //NEW3: 
+      class_store_double(dataptr, inu_number_conservation, _TRUE_, storeidx);
+      class_store_double(dataptr, inu_energy_conservation, _TRUE_, storeidx);
+      class_store_double(dataptr, inu_momentum_conservation, _TRUE_, storeidx);
+      class_store_double(dataptr, inu_quadrupole_violation, _TRUE_, storeidx);
     }
 
   }
@@ -7009,9 +7143,8 @@ int perturb_derivs(double tau,
   /* for use with interacting neutrinos (inu): */
   double * dy_scat;
   double * Z; 
-  double rho_inu_bg,p_inu_bg, G_massive, T0;
+  double rho_inu_bg,p_inu_bg, G_eff, T_inu, f0;
   int index_qpr, index_l, lmax, Nq;
-
 
   /* for use with curvature */
   double cotKgen, sqrt_absK;
@@ -7502,6 +7635,17 @@ int perturb_derivs(double tau,
           dy[pv->index_pt_delta_ur+l] =
             k*(s_l[l]*y[pv->index_pt_delta_ur+l-1]-(1.+l)*cotKgen*y[pv->index_pt_delta_ur+l]);
 
+ /* NEW3: Cyr-Racine's and Sigurdson's damping term: **/ 
+ /* For G_eff_CYR =0 we recover the non-interacting ur neutrino case... Add an if-condition to switch off interactions maybe later?  **/
+
+              dy[pv->index_pt_shear_ur] += -0.47*pow(pba->G_eff_CYR,2.)*pow(1/a,4.)*pow(pba->T_inu,5.)*y[pv->index_pt_shear_ur];
+
+              dy[pv->index_pt_l3_ur] += -0.47*pow(pba->G_eff_CYR,2.)*pow(1/a,4.)*pow(pba->T_inu,5.)*y[pv->index_pt_l3_ur];
+           
+              for (l = 4; l < pv->l_max_ur; l++) {
+            dy[pv->index_pt_delta_ur+l] +=  -0.47*pow(pba->G_eff_CYR,2.)*pow(1/a,4.)*pow(pba->T_inu,5.)*y[pv->index_pt_delta_ur+l]; 
+          } 
+
         }
 
         else {
@@ -7690,38 +7834,41 @@ int perturb_derivs(double tau,
 
         q = pba->q_inu[index_q];
         dlnf0_dlnq = pba->dlnf0_dlnq_inu[index_q];
-        G_massive= pba->G_massive;
+        G_eff= pba->G_eff;
+        T_inu = pba->T_inu;
+
+        /** NEW3: Define everything in terms of G_eff (=g^2/m^2) instead of G_massive, where N = 3/4*Zeta(3). Not entirely sure if I should include another factor 2./pow(2*_PI_,3.) here, since we used f0=N*exp(-q) in our paper to calculate the collision integrals, but CLASS uses now f0=2/(2Pi)^3*N*exp(-q)??? */
 
         /** -----> inu density for given momentum bin */
 
-        dy[idx] = - k*y[idx+1]+metric_continuity*dlnf0_dlnq/3.
-          -40./3.*pow(1/a,4.)*G_massive*q*y[idx];
+        dy[idx] = - k*y[idx+1]+metric_continuity*dlnf0_dlnq/3. 
+          -40./3*2.*3./4.*_zeta3_/pow(2*_PI_,3.)*(2./pow(2*_PI_,3.))*pow(T_inu,5.)*pow(1/a,4.)*pow(G_eff,2.)*q*y[idx];
 
         /** -----> inu velocity for given momentum bin */
 
         dy[idx+1] = k/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
-          -metric_euler/(3*k)*dlnf0_dlnq
-          -40./3.*pow(1/a,4.)*G_massive*q*y[idx+1];
+          -metric_euler/(3*k)*dlnf0_dlnq 
+          -40./3.*2.*3./4.*_zeta3_/pow(2*_PI_,3.)*(2./pow(2*_PI_,3.))*pow(T_inu,5.)*pow(1/a,4.)*pow(G_eff,2.)*q*y[idx+1];
 
         /** -----> inu shear for given momentum bin */
 
         dy[idx+2] = k/5.0*(2*s_l[2]*y[idx+1]-3.*s_l[3]*y[idx+3])
-          -s_l[2]*metric_shear*2./15.*dlnf0_dlnq
-          -40./3.*pow(1/a,4.)*G_massive*q*y[idx+2];
+          -s_l[2]*metric_shear*2./15.*dlnf0_dlnq 
+          -40./3.*2.*3./4.*_zeta3_/pow(2*_PI_,3.)*(2./pow(2*_PI_,3.))*pow(T_inu,5.)*pow(1/a,4.)*pow(G_eff,2.)*q*y[idx+2];
+
 
         /** -----> inu l>3 for given momentum bin */
 
         for(l=3; l<pv->l_max_inu; l++){
-          dy[idx+l] = k/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)])
-            -40./3.*pow(1/a,4.)*G_massive*q*y[idx+l];
+          dy[idx+l] = k/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)]) 
+            -40./3.*2.*3./4.*_zeta3_/pow(2*_PI_,3.)*(2./pow(2*_PI_,3.))*pow(T_inu,5.)*pow(1/a,4.)*pow(G_eff,2.)*q*y[idx+l]; 
         }
-
 
         /** -----> inu lmax for given momentum bin (truncation as in Ma and Bertschinger)
             but with curvature taken into account a la arXiv:1305.3261 */
 
-        dy[idx+l] = k*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l]
-          -40./3.*pow(1/a,4.)*G_massive*q*y[idx+l];
+        dy[idx+l] = k*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l] 
+          -40./3.*2.*3./4.*_zeta3_/pow(2*_PI_,3.)*(2./pow(2*_PI_,3.))*pow(T_inu,5.)*pow(1/a,4.)*pow(G_eff,2.)*q*y[idx+l];
 
 
         /** NEW: Calculation of the integral term: */
@@ -7730,13 +7877,16 @@ int perturb_derivs(double tau,
         Z = ppw->inu_scattering_kernel;
         dy_scat = ppw->dy_scat;
 
+        class_call(background_inu_distribution(&pba,q,&f0),ppt->error_message,ppt->error_message);
+
         /** NEW2: dy_scat can be reused for each momentum bin index_q, so it should just be
             a 1d array of length lmax+1. It has to be zeroed before adding the kernel Z*y. */
+       /** NEW3: Have to devide by f0(q) because in the paper: f=f0+F (eq. 3.4) and in CLASS: f= f0(1+F), but not multiply by f0(qpr) here because it is already included in integral weights. **/
         for(index_l=0; index_l <= lmax; index_l++){
           dy_scat[index_l] = 0.0;
           for(index_qpr=0; index_qpr <Nq; index_qpr++){
-            dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*
-              y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l];
+            dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*pba->w_inu[index_qpr]*
+              y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]/f0;
           }
         }
 
@@ -7744,9 +7894,9 @@ int perturb_derivs(double tau,
 
         for(l=0; l<=pv->l_max_inu; l++){
 
-          dy[idx+l] += G_massive*pow(1/a,4.)*ppw->dy_scat[l];
+          dy[idx+l] += pow(G_eff,2.)*pow(1/a,4.)*2.*3./4.*_zeta3_/pow(2*_PI_,3.)*(2./pow(2*_PI_,3.))*pow(T_inu,5.)*ppw->dy_scat[l];
         }
-
+       
         /** -----> jump to next momentum bin or species */
 
         idx += (pv->l_max_inu+1);
@@ -8596,10 +8746,7 @@ int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec){
 
         gk_adapt2(Km_integ, -1, 1, &I, &err, (void *) param, rtol, abstol, _FALSE_);
 
-        /** Isabel: Have to devide by f0(q) and multiply by f0(qpr) here because in the paper: f=f0+F (eq. 3.4) and in CLASS: f= f0(1+F). **/
-        Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] = qpr/q*(I-lastterm)*exp(q-qpr);
-
-/*        printf("Z[%d\n, %d\n, %d\n]= %g\n", index_qpr, index_l, index_q, Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr]); */
+        Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] = qpr/q*(2.*I-lastterm); 
 
       }
 

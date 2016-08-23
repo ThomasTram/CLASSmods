@@ -488,7 +488,7 @@ struct perturb_workspace
                                  time-derivatives */
   /** NEW: **/
   double * inu_scattering_kernel; 
-  double * dy_scat;
+  double * dy_scat; 
 
   double delta_rho;
   double rho_plus_p_theta;
@@ -512,6 +512,12 @@ struct perturb_workspace
   double delta_inu;
   double theta_inu;
   double shear_inu;
+
+  // NEW3:
+  double inu_number_conservation;
+  double inu_energy_conservation;
+  double inu_momentum_conservation;
+  double inu_quadrupole_violation;
 
   double delta_m;
   double theta_m;
