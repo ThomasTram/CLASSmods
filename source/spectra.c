@@ -1789,8 +1789,8 @@ int spectra_indices(
   class_define_index(psp->index_tr_theta_N,ppt->has_source_L_prime,index_tr,1);
   class_define_index(psp->index_tr_delta_Nb,ppt->has_source_L,index_tr,1);
   class_define_index(psp->index_tr_theta_Nb,ppt->has_source_L_prime,index_tr,1);
-  class_define_index(psp->index_tr_CHT_chi,ppt->has_source_L,index_tr,1);
-  class_define_index(psp->index_tr_CHT_sigma,ppt->has_source_L_prime,index_tr,1);
+  class_define_index(psp->index_tr_CHT_grow,ppt->has_source_L,index_tr,1);
+  class_define_index(psp->index_tr_CHT_decay,ppt->has_source_L_prime,index_tr,1);
 
   psp->tr_size = index_tr;
 
@@ -3255,14 +3255,14 @@ int spectra_matter_transfers(
             [index_ic * ppt->tp_size[index_md] + ppt->index_tp_theta_Nb]
             [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
 
-          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_CHT_chi] =
+          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_CHT_grow] =
             ppt->sources[index_md]
-            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_CHT_chi]
+            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_CHT_grow]
             [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
 
-          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_CHT_sigma] =
+          psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_CHT_decay] =
             ppt->sources[index_md]
-            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_CHT_sigma]
+            [index_ic * ppt->tp_size[index_md] + ppt->index_tp_CHT_decay]
             [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
 
         }

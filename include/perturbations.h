@@ -307,8 +307,8 @@ struct perturbs
   int index_tp_theta_Nb;      /**< index value for derivative of spatial gauge displacement L */
   int index_tp_A_nm;      /**< index value for derivative of spatial gauge displacement L */
   int index_tp_B_nm;      /**< index value for derivative of spatial gauge displacement L */
-  int index_tp_CHT_chi;
-  int index_tp_CHT_sigma;
+  int index_tp_CHT_grow;
+  int index_tp_CHT_decay;
 
 
   int * tp_size; /**< number of types tp_size[index_md] included in computation for each mode */
@@ -439,8 +439,8 @@ struct perturb_vector
   int index_pt_theta_N;			 /**< index value for the Newtonian velocity divergence */
   int index_pt_delta_Nb;			 /**< index value for the Newtonian density */
   int index_pt_theta_Nb;			 /**< index value for the Newtonian velocity divergence */
-  int index_pt_CHT_chi;
-  int index_pt_CHT_sigma;
+  int index_pt_CHT_grow;
+  int index_pt_CHT_decay;
 
   int index_pt_hv_prime;  /**< vector metric perturbation h_v' in synchronous gauge */
   int index_pt_V;         /**< vector metric perturbation V in Newtonian gauge */
