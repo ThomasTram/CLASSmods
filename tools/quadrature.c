@@ -70,7 +70,7 @@ int get_qsampling(double *x,
   leaf_count(root);
   /* I can get the integral now: */
   I = get_integral(root, 1);
-  //printf("I = %le |%le, used points: %d\n",I,I-1.0,15*root->leaf_childs);
+  printf("I = %le |%le, used points: %d\n",I,I-1.0,15*root->leaf_childs);
   Itot += I;
 
   /* Starting from the top, move down in levels until tolerance is met: */
@@ -188,7 +188,7 @@ int get_qsampling(double *x,
       ILag += y*w[i];
     }
     err = I-ILag;
-    //fprintf(stderr,"\n Computing Laguerre, N=%d, I=%g and err=%g.\n",NLag,ILag,err);
+    fprintf(stderr,"\n Computing Laguerre, N=%d, I=%g and err=%g.\n",NLag,ILag,err);
     if (fabs(err/I)<rtol){
       Laguerre_converging = _TRUE_;
       break;
@@ -248,7 +248,7 @@ int get_qsampling(double *x,
       Laguerre_converging = _FALSE_;
     }
   }
-  //printf("N_adapt=%d, N_combined=%d at level=%d, Nlag=%d\n",Nadapt,N_comb,level,NLag);
+  printf("N_adapt=%d, N_combined=%d at level=%d, Nlag=%d\n",Nadapt,N_comb,level,NLag);
   if (adapt_converging==_TRUE_){
     sprintf(method_chosen,"Adaptive Gauss-Kronrod Quadrature");
     /* Gather weights and xvalues from tree: */
@@ -287,7 +287,7 @@ int get_qsampling(double *x,
   }
 
 
-  //printf("Chosen sampling: %s, with %d points.\n",method_chosen,*N);
+  printf("Chosen sampling: %s, with %d points.\n",method_chosen,*N);
   //for(i=0; i<*N; i++) printf("(q,w) = (%g,%g)\n",x[i],w[i]);
   /* Deallocate tree: */
   burn_tree(root);

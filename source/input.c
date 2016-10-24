@@ -847,7 +847,7 @@ int input_read_parameters(
     class_read_double("tol_ncdm_synchronous",ppr->tol_ncdm_synchronous);
     class_read_double("tol_ncdm_bg",ppr->tol_ncdm_bg);
     if (ppt->gauge == synchronous)
-      ppr->tol_ncdm = ppr->tol_ncdm_synchronous;
+      ppr->tol_ncdm = ppr->tol_ncdm_synchronous; 
     if (ppt->gauge == newtonian)
       ppr->tol_ncdm = ppr->tol_ncdm_newtonian;
 
@@ -1018,13 +1018,24 @@ int input_read_parameters(
     /*Isabel: Still have to fix that default values are used if no vlaue is found in ini-file. Is there an equivalent of "class_read_list_of_doubles_or_default", but not for lists?   */
     /*Thomas: There is a function input_defaults() that sets all standard values before this function is run. */
 
-    /* read G_massive and T_inu*/
-    class_read_double("G_massive",pba->G_massive);
+    /* read G_eff and T_inu*/
+    class_read_double("G_eff",pba->G_eff);
     class_read_double("T_inu",pba->T_inu);
+
+    class_read_double("G_eff_CYR",pba->G_eff_CYR);
 
     /* Isabel: For the massless case we need to read in tables of background distribution function, see ncdm */
     /* Thomas: For NCDM we needed the call here in order to relate mass and Omega. For inu it is better to have
        this call in the background module. But we will see later. */
+
+    class_read_double("tol_inu_newtonian",ppr->tol_inu_newtonian);
+    class_read_double("tol_inu_synchronous",ppr->tol_inu_synchronous);
+    class_read_double("tol_inu_bg",ppr->tol_inu_bg);
+    if (ppt->gauge == synchronous){
+      ppr->tol_inu = ppr->tol_inu_synchronous;  }  
+    if (ppt->gauge == newtonian){
+      ppr->tol_inu = ppr->tol_inu_newtonian;} 
+
     class_call(background_inu_init(ppr,pba),pba->error_message,errmsg);
 
   }
@@ -2818,7 +2829,9 @@ int input_default_params(
 
   pba->Omega0_inu = 0.0;
   pba->T_inu = pow(4./11.,1./3.);
-  pba->G_massive = 0.0;
+  pba->G_eff = 0.0;
+
+  pba->G_eff_CYR = 0.0;
 
   pba->Omega0_scf = 0.; /* Scalar field defaults */
   pba->attractor_ic_scf = _TRUE_;
@@ -3098,13 +3111,14 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->tol_initial_Omega_r = 1.e-4;
   ppr->tol_M_ncdm = 1.e-7;
   ppr->tol_ncdm = 1.e-3;
-  ppr->tol_ncdm_synchronous = 1.e-3;
+  ppr->tol_ncdm_synchronous =1.e-3;
   ppr->tol_ncdm_newtonian = 1.e-5;
   ppr->tol_ncdm_bg = 1.e-5;
   ppr->tol_ncdm_initial_w=1.e-3;
 
   ppr->tol_inu = 1.e-3;
-  ppr->tol_inu_synchronous = 1.e-3;
+  ppr->tol_inu_synchronous = 1.e-5;
+//1.e-5;
   ppr->tol_inu_newtonian = 1.e-5;
   ppr->tol_inu_bg = 1.e-5;
 
@@ -3198,7 +3212,7 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->l_max_dr=17;
   ppr->l_max_ur=17;
   ppr->l_max_ncdm=17;
-  ppr->l_max_inu=17;
+  ppr->l_max_inu= 17;
   ppr->l_max_g_ten=5;
   ppr->l_max_pol_g_ten=5;
 
