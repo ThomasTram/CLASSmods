@@ -114,7 +114,8 @@ struct background
 
 
   double Omega0_inu;                  /** Omega0_inu for inu species */
-  double G_massive;                      /** G_massive is defined below eq. (6.6) in astro-ph/1409.1577 and includes the coupling strength as well as the scalar mass. The only difference is that the a^4 is not included. */
+  double G_eff;                      /** G_eff is defined below eq. (6.6) in astro-ph/1409.1577 and includes the coupling strength as well as the scalar mass. The only difference is that the a^4 is not included. */
+  double G_eff_CYR;
 
   /* the following parameters help to define the analytical inu phase space distributions (p-s-d) */
   double T_inu;       /**< relative temperature T_inu/T_gamma */
@@ -476,7 +477,7 @@ extern "C" {
  int background_inu_distribution(
 				  void *pba,
 				  double q,
-				  double * f0
+				  double *f0
 				  );
 
   int background_inu_test_function(
