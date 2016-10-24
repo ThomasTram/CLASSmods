@@ -1346,7 +1346,7 @@ int background_inu_init(
 
   printf("tol_inu = %g\n",ppr->tol_inu);
 
-  class_call(get_qsampling(pba->q_inu,
+  class_call(get_qsampling_inu(pba->q_inu,
                            pba->w_inu,
                            &(pba->q_size_inu),
                            _QUADRATURE_MAX_,
@@ -2462,4 +2462,41 @@ double ddV_scf(
                struct background *pba,
                double phi) {
   return ddV_e_scf(pba,phi)*V_p_scf(pba,phi) + 2*dV_e_scf(pba,phi)*dV_p_scf(pba,phi) + V_e_scf(pba,phi)*ddV_p_scf(pba,phi);
+}
+
+
+int get_qsampling_inu(double *x,
+                      double *w,
+                      int *N,
+                      int N_max,
+                      double rtol,
+                      double *qvec,
+                      int qsiz,
+                      int (*test)(void * params_for_function, double q, double *psi),
+                      int (*function)(void * params_for_function, double q, double *f0),
+                      void * params_for_function,
+                      ErrorMsg errmsg) {
+
+  int i;
+  double qmin = 0.1;
+  double qmax = 8.0;
+  double dq, ytmp;
+  *N = (int) rtol;
+  class_test((*N)>N_max,errmsg,"Too many momentum bins in INU.");
+  dq = (qmax-qmin)/((*N)-1);
+  for (i=0; i<(*N); i++){
+    x[i] = qmin+i*dq;
+    (*function)(params_for_function,x[i],w+i);
+    if ((i==0) || (i==(*N-1)))
+      w[i] *= 0.5*dq;
+    else
+      w[i] *= dq;
+  }
+
+
+    
+
+
+  
+  return _SUCCESS_;
 }

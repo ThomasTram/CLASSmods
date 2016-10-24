@@ -556,6 +556,18 @@ extern "C" {
                double phi_prime
                );
 
+   int get_qsampling_inu(double *x,
+                        double *w,
+                        int *N,
+                        int N_max,
+                        double rtol,
+                        double *qvec,
+                        int qsiz,
+                        int (*test)(void * params_for_function, double q, double *psi),
+                        int (*function)(void * params_for_function, double q, double *f0),
+                        void * params_for_function,
+                        ErrorMsg errmsg);
+
 #ifdef __cplusplus
 }
 #endif
