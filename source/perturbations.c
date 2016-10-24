@@ -7830,40 +7830,40 @@ int perturb_derivs(double tau,
         dlnf0_dlnq = pba->dlnf0_dlnq_inu[index_q];
         G_eff= pba->G_eff;
         T_inu = pba->T_inu;
-	Norm = 3./4.*_zeta3_;
+        Norm = pba->inu_norm/a2/a2;
     
         /** NEW3: Define everything in terms of G_eff (=g^2/m^2) instead of G_massive, where Norm = 3/4*Zeta(3). Not entirely sure if I should include another factor 2./pow(2*_PI_,3.) here, since we used f0=N*exp(-q) in our paper to calculate the collision integrals, but CLASS uses now f0=2/(2Pi)^3*N*exp(-q)??? */
 
         /** -----> inu density for given momentum bin */
 
-        dy[idx] = - k*y[idx+1]+metric_continuity*dlnf0_dlnq/3. 
-          -40./3.*Norm*(4./pow(2*_PI_,6.))*pow(T_inu,5.)/pow(a,4.)*pow(G_eff,2.)*q*y[idx];
+        dy[idx] = - k*y[idx+1]+metric_continuity*dlnf0_dlnq/3.
+          -40./3.*Norm*q*y[idx];
 
         /** -----> inu velocity for given momentum bin */
 
         dy[idx+1] = k/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
           -metric_euler/(3*k)*dlnf0_dlnq 
-          -40./3.*Norm*(4./pow(2*_PI_,6.))*pow(T_inu,5.)/pow(a,4.)*pow(G_eff,2.)*q*y[idx+1];
+          -40./3.*Norm*q*y[idx+1];
 
         /** -----> inu shear for given momentum bin */
 
         dy[idx+2] = k/5.0*(2*s_l[2]*y[idx+1]-3.*s_l[3]*y[idx+3])
           -s_l[2]*metric_shear*2./15.*dlnf0_dlnq 
-          -40./3.*Norm*(4./pow(2*_PI_,6.))*pow(T_inu,5.)/pow(a,4.)*pow(G_eff,2.)*q*y[idx+2];
+          -40./3.*Norm*q*y[idx+2];
 
 
         /** -----> inu l>3 for given momentum bin */
 
         for(l=3; l<pv->l_max_inu; l++){
           dy[idx+l] = k/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)]) 
-            -40./3.*Norm*(4./pow(2*_PI_,6.))*pow(T_inu,5.)/pow(a,4.)*pow(G_eff,2.)*q*y[idx+l]; 
+            -40./3.*Norm*q*y[idx+l];
         }
 
         /** -----> inu lmax for given momentum bin (truncation as in Ma and Bertschinger)
             but with curvature taken into account a la arXiv:1305.3261 */
 
         dy[idx+l] = k*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l] 
-          -40./3.*Norm*(4./pow(2*_PI_,6.))*pow(T_inu,5.)/pow(a,4.)*pow(G_eff,2.)*q*y[idx+l];
+          -40./3.*Norm*q*y[idx+l];
 
         /** NEW: Calculation of the integral term: */
         Nq = pv->q_size_inu;
@@ -7880,7 +7880,7 @@ int perturb_derivs(double tau,
           ppw->dy_scat[index_l] = 0.0;
           for(index_qpr=0; index_qpr <Nq; index_qpr++){
             ppw->dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*pba->w_inu[index_qpr]*
-              y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]/f0;
+              y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l];
            /*  printf("dy_scat[%d]=%g\n, y[%d]=%g\n",index_l,ppw->dy_scat[index_l],index_l,y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]); */
           }
         }
@@ -7888,7 +7888,7 @@ int perturb_derivs(double tau,
         /** Add up integral term: */
 
         for(l=0; l<=pv->l_max_inu; l++){
-          dy[idx+l] +=Norm*(4./pow(2*_PI_,6.))*pow(T_inu,5.)/pow(a,4.)*pow(G_eff,2.)*ppw->dy_scat[l];
+          dy[idx+l] +=Norm*ppw->dy_scat[l]/f0;
         }
        
         /** -----> jump to next momentum bin or species */

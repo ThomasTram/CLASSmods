@@ -535,10 +535,24 @@ int background_init(
 
       printf(" -> total N_eff = %g (sumed over ultra-relativistic and ncdm species)\n",Neff);
 
-      if (pba->Omega0_inu > 0.) {
-      printf(" -> inu species sampled with %d points for purpose of perturbation integration.\n",
+    }
+
+    if (pba->Omega0_inu > 0.) {
+       printf(" -> inu species sampled with %d points for purpose of perturbation integration.\n",
                pba->q_size_inu);
+
+      rho_nu_rel = 56.0/45.0*pow(_PI_,6)*pow(4.0/11.0,4.0/3.0)*_G_/pow(_h_P_,3)/pow(_c_,7)*
+          pow(_Mpc_over_m_,2)*pow(pba->T_cmb*_k_B_,4);
+      /** - loop over momenta */
+      int index_q;
+      double q2;
+      double rho_inu = 0;
+      for (index_q=0; index_q<pba->q_size_inu; index_q++) {
+        /* squared momentum */
+        rho_inu += pow(pba->q_inu[index_q],3)*pba->w_inu[index_q];
       }
+      rho_inu *= pba->factor_inu;
+      printf(" -> inu species has N_eff = %g (sumed over ultra-relativistic and ncdm species)\n",rho_inu/rho_nu_rel);
 
     }
   }
@@ -1077,7 +1091,8 @@ int background_inu_distribution(
 
     /* NEW3: Should not use Fermi-Dirac, but Maxwell-Boltzmann with the corresponding normalization factor N=3/4*Zeta(3). In contrast to ncdm this definition does NOT count for neutrinos AND anti-neutrinos and also does NOT include the factor 1/(2Pi)^3. */
 
-   *f0 =  2./pow(2*_PI_,3.)*3./4.*_zeta3_*exp(-q);
+  //   *f0 =  2./pow(2*_PI_,3.)*3./4.*_zeta3_*exp(-q);
+  *f0 =  2./pow(2*_PI_,3.)/(exp(q)+1.);
 
   return _SUCCESS_;
 }
@@ -2479,7 +2494,7 @@ int get_qsampling_inu(double *x,
 
   int i;
   double qmin = 0.1;
-  double qmax = 8.0;
+  double qmax = 12.0;
   double dq, ytmp;
   *N = (int) rtol;
   class_test((*N)>N_max,errmsg,"Too many momentum bins in INU.");
