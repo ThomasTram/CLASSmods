@@ -7945,7 +7945,7 @@ int perturb_derivs(double tau,
         idx += (pv->l_max_inu+1);
       }
 
-      /** DEBUG ZONE */
+      /** DEBUG ZONE
       if (k==1.0){
         fprintf(stderr,"%.4e ",tau);
         idx = pv->index_pt_psi0_inu;
@@ -7954,7 +7954,7 @@ int perturb_derivs(double tau,
           fprintf(stderr,"%.4e ",y[pv->index_pt_psi0_inu+index_q*(lmax+1)+index_l]);
         fprintf(stderr,"\n");
       }
-
+      */
 
     }
 
@@ -8815,6 +8815,53 @@ int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec){
 
  return _SUCCESS_;
 }
+
+int compute_full_scatter(struct background * pba, struct perturbations * ppt, int lmax){
+  int Nq = pba->q_size_inu;
+  double *qvec = pba->q_inu;
+  double *wvec = pba->w_inu;
+  int index_q, index_qpr, index_l;
+  double *Z, *S;
+  double q, qpr, f0, f0qpr;
+
+  Z = malloc(sizeof(double)*(lmax+1)*Nq*Nq);
+  compute_Zlm(Z, lmax, qvec, Nq);
+
+  /** Constructing scattering matrix
+      Okay this matrix needs to be indexed with index_l as outer index since
+      we will need to call matrix methods on the [index_q][index_qpr] sub matrix. */
+  S = malloc(sizeof(double)*(lmax+1)*Nq*Nq);
+
+  for (index_q=0; index_q<Nq; index_q++){
+    q = qvec[index_q];
+    class_call(background_inu_distribution(&pba,q,&f0),ppt->error_message,ppt->error_message);
+    for (index_l=0; index_l<=lmax; index_l++){
+      for (index_qpr=0; index_qpr<Nq; index_qpr++){
+        qpr = pba->q_inu[index_qpr];
+        class_call(background_inu_distribution(&pba,qpr,&f0qpr),ppt->error_message,ppt->error_message);
+        S[index_l*Nq*nq+index_q*Nq+index_qpr] = Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*wvec[index_qpr]/f0;
+
+        if (index_q==index_qpr){
+          /** Add the diagonal C3 term */
+          S[index_l*Nq*nq+index_q*Nq+index_qpr] += -40./3.*q;
+        }
+
+      }
+    }
+  }
+
+  /** Do eigenvalue decomposition */
+
+  /** Set positive eigenvalues to 0 */
+
+  /** Reconstruct scattering matrix */
+
+
+
+  return _SUCCESS_;
+}
+
+
 
 double Plx(int l, double x){
   double Plm2, Plm1, Pl;
