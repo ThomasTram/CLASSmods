@@ -1091,8 +1091,8 @@ int background_inu_distribution(
 
     /* NEW3: Should not use Fermi-Dirac, but Maxwell-Boltzmann with the corresponding normalization factor N=3/4*Zeta(3). In contrast to ncdm this definition does NOT count for neutrinos AND anti-neutrinos and also does NOT include the factor 1/(2Pi)^3. */
 
-  //   *f0 =  2./pow(2*_PI_,3.)*3./4.*_zeta3_*exp(-q);
-  *f0 =  2./pow(2*_PI_,3.)/(exp(q)+1.);
+  *f0 =  2./pow(2*_PI_,3.)*3./4.*_zeta3_*exp(-q);
+  //*f0 =  2./pow(2*_PI_,3.)/(exp(q)+1.);
 
   return _SUCCESS_;
 }
@@ -2493,19 +2493,57 @@ int get_qsampling_inu(double *x,
                       ErrorMsg errmsg) {
 
   int i;
-  double qmin = 0.1;
-  double qmax = 12.0;
-  double dq, ytmp;
+  double dq, dt, t, ytmp;
   *N = (int) rtol;
   class_test((*N)>N_max,errmsg,"Too many momentum bins in INU.");
-  dq = (qmax-qmin)/((*N)-1);
-  for (i=0; i<(*N); i++){
-    x[i] = qmin+i*dq;
-    (*function)(params_for_function,x[i],w+i);
-    if ((i==0) || (i==(*N-1)))
-      w[i] *= 0.5*dq;
-    else
-      w[i] *= dq;
+
+  if (1==1){
+    /** Standard trapezoidal rule with qmin and qmax: */
+    double qmin = 0.1;
+    double qmax = 12.0;
+
+    dq = (qmax-qmin)/((*N)-1);
+    for (i=0; i<(*N); i++){
+      x[i] = qmin+i*dq;
+      (*function)(params_for_function,x[i],w+i);
+      if ((i==0) || (i==(*N-1)))
+        w[i] *= 0.5*dq;
+      else
+        w[i] *= dq;
+    }
+  }
+  else if (0==1){
+    /** Transform using q=t/(1-t) */
+    dt = 1.0/((*N)+1);
+    for (i=0; i<(*N); i++){
+      t = 0+(i+1)*dt;
+      x[i] = t/(1.-t);;
+      (*function)(params_for_function,x[i],&ytmp);
+      w[i] = ytmp*dt/pow(1.-t,2);
+    }
+
+  }
+  else{
+    double xext=3.1;
+    double xmin=1e-4;
+    double xmax=100.;
+    double k1,k2,eps1,eps2;
+    k1 = xmin/xext;
+    k2 = xmax/xext;
+    eps2 = (1+k1)/(k2-k1);
+    eps1 = k1*(1+eps2);
+
+    dt = 1./((*N)+1);
+    for (i=0; i<(*N); i++){
+      t = i*dt;
+      x[i] = (xext*(t+eps1))/(1.+eps2-t);
+      (*function)(params_for_function,x[i],w+i);
+      if ((i==0) || (i==(*N-1)))
+        w[i] *= 0.5*dt;
+      else
+        w[i] *= dt;
+      w[i] *=(1.+eps1+eps2)*xext/pow(1+eps2-t,2);
+    }
   }
 
 

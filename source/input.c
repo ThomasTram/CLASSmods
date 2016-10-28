@@ -1028,6 +1028,7 @@ int input_read_parameters(
 
     class_read_double("G_eff_CYR",pba->G_eff_CYR);
 
+
     /* Isabel: For the massless case we need to read in tables of background distribution function, see ncdm */
     /* Thomas: For NCDM we needed the call here in order to relate mass and Omega. For inu it is better to have
        this call in the background module. But we will see later. */

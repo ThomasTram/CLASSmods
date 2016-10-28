@@ -1371,6 +1371,34 @@ cdef class Class:
 
         return k_nl
 
+
+    def compute_Zl_massive(self, qvec, lmax):
+        """
+        Zl(q_prime,q,l)
+
+        Parameters
+        ----------
+        z : float
+                Desired redshift
+                (double *Z, int lmax, double *qvec, int size_qvec)
+        """
+        cdef double* data
+        cdef double* q
+        q =  <double*>malloc(sizeof(double)*len(qvec))
+        for i in range(len(qvec)):
+            q[i] = qvec[i]
+        data = <double*>malloc(sizeof(double)*len(qvec)*len(qvec)*(lmax+1))
+        compute_Zlm(data,lmax,q,len(qvec))
+
+        Z = np.zeros((lmax+1,len(qvec),len(qvec)))
+        for index_q in range(len(qvec)):
+            for index_l in range(lmax+1):
+                for index_qpr in range(len(qvec)):
+                    Z[index_l][index_q][index_qpr] = data[index_q*len(qvec)*(lmax+1)+index_l*len(qvec)+index_qpr];
+        free(data)
+        return Z
+
+
     def __call__(self, ctx):
         """
         Function to interface with CosmoHammer
