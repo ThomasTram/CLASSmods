@@ -441,6 +441,7 @@ struct perturb_vector
   int index_pt_theta_Nb;			 /**< index value for the Newtonian velocity divergence */
   int index_pt_CHT_grow;
   int index_pt_CHT_decay;
+  int index_pt_integ_decay_dcdm;
 
   int index_pt_hv_prime;  /**< vector metric perturbation h_v' in synchronous gauge */
   int index_pt_V;         /**< vector metric perturbation V in Newtonian gauge */
