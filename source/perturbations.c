@@ -1917,8 +1917,11 @@ int perturb_workspace_init(
   class_alloc(ppw->dy_scat,(ppr->l_max_inu+1)*sizeof(double),ppt->error_message);
 
   /** NEW: call the function that calculates the integral kernel: */
-  class_call(compute_Zlm(ppw->inu_scattering_kernel, ppr->l_max_inu, pba->q_inu, pba->q_size_inu),ppt->error_message,
-             ppt->error_message); 
+ /* class_call(compute_Zlm(ppw->inu_scattering_kernel, ppr->l_max_inu, pba->q_inu, pba->q_size_inu),ppt->error_message,
+             ppt->error_message); */
+
+  class_call(compute_full_scatter(ppw->inu_scattering_kernel,pba, ppt, ppr->l_max_inu),ppt->error_message,
+             ppt->error_message);
 
   /** - count number of approximation, initialize their indices, and allocate their flags */
   index_ap=0;
@@ -5380,7 +5383,7 @@ int perturb_total_stress_energy(
   int index_qpr, index_l, lmax, Nq;
   double qpr;
   double * dy_scat;
-  double * Z;
+  double * S;
   double inu_number_conservation=0., inu_energy_conservation=0., inu_momentum_conservation=0., inu_quadrupole_violation=0.;
 
 
@@ -5613,14 +5616,13 @@ int perturb_total_stress_energy(
 
         Nq = ppw->pv->q_size_inu;
         lmax = ppw->pv->l_max_inu;
-        Z = ppw->inu_scattering_kernel;
+        S= ppw->inu_scattering_kernel;
        /* dy_scat = ppw->dy_scat; */
 
         for(index_l=0; index_l <= 3; index_l++){
           ppw->dy_scat[index_l] = 0.0;
           for(index_qpr=0; index_qpr <Nq; index_qpr++){
-            qpr = pba->q_inu[index_qpr];
-           ppw->dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*pba->w_inu[index_qpr]*
+           ppw->dy_scat[index_l] += S[index_l*Nq*Nq+index_q*Nq+index_qpr]*
             y[ppw->pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]; 
           }
         }
@@ -6447,7 +6449,7 @@ int perturb_print_variables(double tau,
   int index_qpr, index_l, lmax, Nq;
   double qpr;
   double * dy_scat;
-  double * Z;
+  double * S;
 
   /** - rename structure fields (just to avoid heavy notations) */
 
@@ -6644,22 +6646,18 @@ int perturb_print_variables(double tau,
 
         q = pba->q_inu[index_q];
         q2 = q*q;
-
         Nq = ppw->pv->q_size_inu;
         lmax = ppw->pv->l_max_inu;
-        Z = ppw->inu_scattering_kernel;
+        S = ppw->inu_scattering_kernel;
         /* dy_scat = ppw->dy_scat; */
-        double f0qpr, f0;
-        class_call(background_inu_distribution(&pba,q,&f0),ppt->error_message,ppt->error_message);
+        
         for(index_l=0; index_l <= 3; index_l++){
           ppw->dy_scat[index_l] = 0.0;
           for(index_qpr=0; index_qpr <Nq; index_qpr++){
-            qpr = pba->q_inu[index_qpr];
-            class_call(background_inu_distribution(&pba,qpr,&f0qpr),ppt->error_message,ppt->error_message);
-            C3term = -40./3.*q*y[ppw->pv->index_pt_psi0_inu+index_q*(lmax+1)+index_l]*exp(-qpr)/f0qpr;
+            /*C3term = -40./3.*q*y[ppw->pv->index_pt_psi0_inu+index_q*(lmax+1)+index_l]*exp(-qpr)/f0qpr;
             ppw->dy_scat[index_l] += pba->w_inu[index_qpr]*
-              (C3term+1./f0*Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*y[ppw->pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]);
-            /*  printf("dy_scat[%d]=%g\n, y[%d]=%g\n",index_l,ppw->dy_scat[index_l],index_l,y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]); */
+              (C3term+1./f0*Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*y[ppw->pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]); */
+            ppw->dy_scat[index_l] += S[index_l*Nq*Nq+index_q*Nq+index_qpr]*y[ppw->pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l];
           }
         }
         /**
@@ -7021,15 +7019,13 @@ int perturb_print_variables(double tau,
 
         Nq = ppw->pv->q_size_inu;
         lmax = ppw->pv->l_max_inu;
-        Z = ppw->inu_scattering_kernel;
+        S = ppw->inu_scattering_kernel;
        /* dy_scat = ppw->dy_scat; */
 
         for(index_l=0; index_l <= 3; index_l++){
           ppw->dy_scat[index_l] = 0.0;
           for(index_qpr=0; index_qpr <Nq; index_qpr++){
-            qpr = pba->q_inu[index_qpr];
-            ppw->dy_scat[index_l] += Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*pba->w_inu[index_qpr]*
-            y[ppw->pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l];         
+            ppw->dy_scat[index_l] += S[index_l*Nq*Nq+index_q*Nq+index_qpr]*y[ppw->pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l];         
           }
         }
 
@@ -7165,7 +7161,7 @@ int perturb_derivs(double tau,
 
   /* for use with interacting neutrinos (inu): */
   double * dy_scat;
-  double * Z; 
+  double * S; 
   double Norm;
   double rho_inu_bg,p_inu_bg, G_eff, T_inu;
   double f0;
@@ -7868,59 +7864,47 @@ int perturb_derivs(double tau,
         T_inu = pba->T_inu;
         Norm = pba->inu_norm/a2/a2;
     
-        /** NEW3: Define everything in terms of G_eff (=g^2/m^2) instead of G_massive, where Norm = 3/4*Zeta(3). Not entirely sure if I should include another factor 2./pow(2*_PI_,3.) here, since we used f0=N*exp(-q) in our paper to calculate the collision integrals, but CLASS uses now f0=2/(2Pi)^3*N*exp(-q)??? */
+        /** NEW3 */
 
         /** -----> inu density for given momentum bin */
 
         dy[idx] = - k*y[idx+1]+metric_continuity*dlnf0_dlnq/3.;
-        //          -40./3.*Norm*q*y[idx];
 
         /** -----> inu velocity for given momentum bin */
 
         dy[idx+1] = k/3.0*(y[idx] - 2*s_l[2]*y[idx+2])
           -metric_euler/(3*k)*dlnf0_dlnq;
-        //          -40./3.*Norm*q*y[idx+1];
 
         /** -----> inu shear for given momentum bin */
 
         dy[idx+2] = k/5.0*(2*s_l[2]*y[idx+1]-3.*s_l[3]*y[idx+3])
           -s_l[2]*metric_shear*2./15.*dlnf0_dlnq;
-          //  -40./3.*Norm*q*y[idx+2];
-
 
         /** -----> inu l>3 for given momentum bin */
 
         for(l=3; l<pv->l_max_inu; l++){
           dy[idx+l] = k/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)]);
-            //            -40./3.*Norm*q*y[idx+l];
         }
 
         /** -----> inu lmax for given momentum bin (truncation as in Ma and Bertschinger)
             but with curvature taken into account a la arXiv:1305.3261 */
 
         dy[idx+l] = k*y[idx+l-1]-(1.+l)*k*cotKgen*y[idx+l];
-        //          -40./3.*Norm*q*y[idx+l];
 
         /** NEW: Calculation of the integral term: */
         Nq = pv->q_size_inu;
         lmax = pv->l_max_inu;
-        Z = ppw->inu_scattering_kernel;
+        S = ppw->inu_scattering_kernel;
        /* dy_scat = ppw->dy_scat; */
 
-        class_call(background_inu_distribution(&pba,q,&f0),ppt->error_message,ppt->error_message);
-
-        /** NEW2: dy_scat can be reused for each momentum bin index_q, so it should just be
-            a 1d array of length lmax+1. It has to be zeroed before adding the kernel Z*y. */
-       /** NEW3: Have to devide by f0(q) because in the paper: f=f0+F (eq. 3.4) and in CLASS: f= f0(1+F), but not multiply by f0(qpr) here because it is already included in integral weights. **/
+        /** scattering matrix S includes the integral AND the damping term already: */
         for(index_l=0; index_l <= lmax; index_l++){
           ppw->dy_scat[index_l] = 0.0;
           for(index_qpr=0; index_qpr <Nq; index_qpr++){
-            qpr = pba->q_inu[index_qpr];
-            class_call(background_inu_distribution(&pba,qpr,&f0qpr),ppt->error_message,ppt->error_message);
-            C3term = -40./3.*q*y[pv->index_pt_psi0_inu+index_q*(lmax+1)+index_l]*exp(-qpr)/f0qpr;
-            ppw->dy_scat[index_l] += pba->w_inu[index_qpr]*
-              (C3term+1./f0*Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]);
-           /*  printf("dy_scat[%d]=%g\n, y[%d]=%g\n",index_l,ppw->dy_scat[index_l],index_l,y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]); */
+           /* C3term = -40./3.*q*y[pv->index_pt_psi0_inu+index_q*(lmax+1)+index_l]*exp(-qpr)/f0qpr; */
+            /*ppw->dy_scat[index_l] += pba->w_inu[index_qpr]*
+              (C3term+1./f0*Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l]); */
+              ppw->dy_scat[index_l] += S[index_l*Nq*Nq+index_q*Nq+index_qpr]*y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+index_l];
           }
         }
 
@@ -7936,9 +7920,6 @@ int perturb_derivs(double tau,
         for(l=0; l<=pv->l_max_inu; l++){
           dy[idx+l] +=Norm*ppw->dy_scat[l];
         }
-
-
-
 
         /** -----> jump to next momentum bin or species */
 
@@ -8816,21 +8797,49 @@ int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec){
  return _SUCCESS_;
 }
 
-int compute_full_scatter(struct background * pba, struct perturbations * ppt, int lmax){
+int compute_full_scatter(double *S2, struct background * pba, struct perturbs * ppt, int lmax){
   int Nq = pba->q_size_inu;
+  int i, s;
   double *qvec = pba->q_inu;
   double *wvec = pba->w_inu;
   int index_q, index_qpr, index_l;
   double *Z, *S;
   double q, qpr, f0, f0qpr;
+  double *data; 
 
+  gsl_complex alpha, beta; /* These complex numbers are needed for the matrix multiplication later */
+  GSL_SET_COMPLEX (&alpha, 1.0, 0.0);
+  GSL_SET_COMPLEX (&beta, 0.0, 0.0); 
+
+  gsl_vector_complex *eval = gsl_vector_complex_alloc (Nq); /* allocate vector for eigenvalues */
+  gsl_matrix_complex *evec = gsl_matrix_complex_alloc (Nq, Nq); /* allocate matrix of eigenvectors (matrix that diagonalizes S) ->P*/ 
+  gsl_matrix_complex *diag = gsl_matrix_complex_alloc (Nq, Nq); /* diagonalized matrix of data -> D*/
+  gsl_matrix_complex *inv = gsl_matrix_complex_alloc (Nq, Nq);  /* inverse of matrix P */
+  gsl_matrix_complex *First = gsl_matrix_complex_alloc (Nq, Nq); /* P*D */
+  gsl_matrix_complex *Corrected = gsl_matrix_complex_alloc (Nq, Nq); /* P*D*P^(-1) */
+  gsl_permutation * p = gsl_permutation_alloc (Nq); /* needed for LU decomposition of evec */
+  
   Z = malloc(sizeof(double)*(lmax+1)*Nq*Nq);
-  compute_Zlm(Z, lmax, qvec, Nq);
-
   /** Constructing scattering matrix
       Okay this matrix needs to be indexed with index_l as outer index since
       we will need to call matrix methods on the [index_q][index_qpr] sub matrix. */
-  S = malloc(sizeof(double)*(lmax+1)*Nq*Nq);
+  S = malloc(sizeof(double)*(lmax+1)*Nq*Nq); /* scattering matrix */
+  data = malloc(sizeof(double)*Nq*Nq); /* submatrix of S */
+
+  gsl_matrix_complex * my_diag_alloc(gsl_vector_complex * X) /* define function that makes a diagonal matrix from a vector*/
+{
+    gsl_matrix_complex * mat = gsl_matrix_complex_alloc(X->size, X->size);
+    gsl_vector_complex_view diag = gsl_matrix_complex_diagonal(mat);
+    gsl_complex zero; 
+    GSL_SET_COMPLEX (&zero, 0.0, 0.0);
+    gsl_matrix_complex_set_all(mat,zero); 
+    gsl_vector_complex_memcpy(&diag.vector, X);
+    return mat;
+}
+
+  /** -------------- Define scattering matrix S -------------- */ 
+
+  compute_Zlm(Z, lmax, qvec, Nq);
 
   for (index_q=0; index_q<Nq; index_q++){
     q = qvec[index_q];
@@ -8839,28 +8848,93 @@ int compute_full_scatter(struct background * pba, struct perturbations * ppt, in
       for (index_qpr=0; index_qpr<Nq; index_qpr++){
         qpr = pba->q_inu[index_qpr];
         class_call(background_inu_distribution(&pba,qpr,&f0qpr),ppt->error_message,ppt->error_message);
-        S[index_l*Nq*nq+index_q*Nq+index_qpr] = Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*wvec[index_qpr]/f0;
+        S[index_l*Nq*Nq+index_q*Nq+index_qpr] = Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*wvec[index_qpr]/f0;
 
         if (index_q==index_qpr){
           /** Add the diagonal C3 term */
-          S[index_l*Nq*nq+index_q*Nq+index_qpr] += -40./3.*q;
-        }
+          S[index_l*Nq*Nq+index_q*Nq+index_qpr] += -40./3.*q; 
+        } 
 
       }
     }
   }
 
-  /** Do eigenvalue decomposition */
+  /** -------------- Do eigenvalue decomposition -------------- */
 
-  /** Set positive eigenvalues to 0 */
+  for (index_l=0; index_l<lmax; index_l++){
 
-  /** Reconstruct scattering matrix */
+  data = S + index_l*Nq*Nq;
 
+  /* interpret data as NqxNq matrix: index_q labels the line, index_qpr the column */
+  gsl_matrix_view m = gsl_matrix_view_array(data, Nq, Nq); /* or should I use gsl_matrix_view_vector??? */
+  
+  gsl_eigen_nonsymmv_workspace * w = gsl_eigen_nonsymmv_alloc(Nq); /* workspace needed for finding eigenvalues */
 
+  gsl_eigen_nonsymmv(&m.matrix, eval, evec, w); /* This overwrites m/data! */
 
+  gsl_eigen_nonsymmv_free(w);
+
+  gsl_eigen_nonsymmv_sort(eval, evec, GSL_EIGEN_SORT_ABS_DESC); /* sorts eigenvalues and matrix evec according to the size of eigenvalue */
+
+  /** -------------- Set positive eigenvalues to 0 -------------- */
+
+    for (i = 0; i < Nq; i++) 
+      {
+        gsl_complex eval_i    /* get eigenvalue number i */
+           = gsl_vector_complex_get (eval, i);
+
+         if(GSL_REAL(eval_i)>0.0){ 
+           printf ("eigenvalue = %g + %gi\n",GSL_REAL(eval_i), GSL_IMAG(eval_i)); /* print out positive eigenvalues */
+           GSL_REAL(eval_i)=0.0; /* set them to zero */
+           gsl_vector_complex_set(eval,i,eval_i); /* redefine vector eval */
+         }
+      } 
+
+    for (i = 0; i < Nq; i++) /* Test: Are the eigenvalues really all negative now? */
+      {
+        gsl_complex eval_i    
+           = gsl_vector_complex_get(eval, i);
+
+         if(GSL_REAL(eval_i)>0.0){ 
+           printf ("eigenvalue2 = %g + %gi\n",GSL_REAL(eval_i), GSL_IMAG(eval_i));
+         }
+      }         
+
+      diag = my_diag_alloc(eval); /* diagonalized matrix of data  ->D */
+
+  /** -------------- Reconstruct scattering matrix -------------- */
+
+  gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, alpha, evec, diag, beta, First); /* P*D  */
+
+/* Get the inverse of matrix evec: */
+
+  gsl_linalg_complex_LU_decomp(evec, p, &s);    /* Have to decomposit evec into triangular matrices to find its inverse. This overwrites evec! */
+  gsl_linalg_complex_LU_invert(evec, p, inv); 
+
+  gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, alpha, First, inv, beta, Corrected); /* P*D*P^(-1) */
+ 
+    for (index_q=0; index_q<Nq; index_q++){
+      for (index_qpr=0; index_qpr<Nq; index_qpr++){
+        gsl_complex a;
+        double b ;
+        a = gsl_matrix_complex_get(Corrected, index_q, index_qpr);
+        b = GSL_REAL(a); /* Make S real again */
+        S2[index_l*Nq*Nq+index_q*Nq+index_qpr] = b ;
+      }
+    }
+/* Don't I have to free all these pointers here? If I free them, I get an error message... */ 
+ /* free(data); 
+  gsl_permutation_free(p);
+  gsl_vector_complex_free(eval);
+  gsl_matrix_complex_free(evec);
+  gsl_matrix_complex_free(inv);
+  gsl_matrix_complex_free(diag); */
+  }
+
+ /* free(Z); */
+  
   return _SUCCESS_;
 }
-
 
 
 double Plx(int l, double x){

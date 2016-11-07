@@ -8,6 +8,11 @@
 #include "svnversion.h"
 #include <stdarg.h>
 
+#include <gsl/gsl_linalg.h>
+#include <gsl/gsl_blas.h>
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_eigen.h>
+
 #ifdef _OPENMP
 #include "omp.h"
 #endif
