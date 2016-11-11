@@ -8824,7 +8824,8 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
       Okay this matrix needs to be indexed with index_l as outer index since
       we will need to call matrix methods on the [index_q][index_qpr] sub matrix. */
   S = malloc(sizeof(double)*(lmax+1)*Nq*Nq); /* scattering matrix */
-  data = malloc(sizeof(double)*Nq*Nq); /* submatrix of S */
+
+  //data = malloc(sizeof(double)*Nq*Nq);
 
   gsl_matrix_complex * my_diag_alloc(gsl_vector_complex * X) /* define function that makes a diagonal matrix from a vector*/
 {
@@ -8861,57 +8862,56 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
 
   /** -------------- Do eigenvalue decomposition -------------- */
 
-  for (index_l=0; index_l<lmax; index_l++){
-
-  data = S + index_l*Nq*Nq;
-
-  /* interpret data as NqxNq matrix: index_q labels the line, index_qpr the column */
-  gsl_matrix_view m = gsl_matrix_view_array(data, Nq, Nq); /* or should I use gsl_matrix_view_vector??? */
-  
   gsl_eigen_nonsymmv_workspace * w = gsl_eigen_nonsymmv_alloc(Nq); /* workspace needed for finding eigenvalues */
 
-  gsl_eigen_nonsymmv(&m.matrix, eval, evec, w); /* This overwrites m/data! */
+  for (index_l=0; index_l<=lmax; index_l++){
 
-  gsl_eigen_nonsymmv_free(w);
+    data = S + index_l*Nq*Nq;
 
-  gsl_eigen_nonsymmv_sort(eval, evec, GSL_EIGEN_SORT_ABS_DESC); /* sorts eigenvalues and matrix evec according to the size of eigenvalue */
+    /* interpret data as NqxNq matrix: index_q labels the line, index_qpr the column */
+    gsl_matrix_view m = gsl_matrix_view_array(data, Nq, Nq); /* or should I use gsl_matrix_view_vector??? No, array is correct since data is a double pointer */
+  
+    gsl_eigen_nonsymmv(&m.matrix, eval, evec, w); /* This overwrites m/data! */
 
-  /** -------------- Set positive eigenvalues to 0 -------------- */
+    gsl_eigen_nonsymmv_sort(eval, evec, GSL_EIGEN_SORT_ABS_DESC); /* sorts eigenvalues and matrix evec according to the size of eigenvalue */
+
+    /** -------------- Set positive eigenvalues to 0 -------------- */
 
     for (i = 0; i < Nq; i++) 
       {
         gsl_complex eval_i    /* get eigenvalue number i */
-           = gsl_vector_complex_get (eval, i);
+          = gsl_vector_complex_get (eval, i);
 
-         if(GSL_REAL(eval_i)>0.0){ 
-           printf ("eigenvalue = %g + %gi\n",GSL_REAL(eval_i), GSL_IMAG(eval_i)); /* print out positive eigenvalues */
-           GSL_REAL(eval_i)=0.0; /* set them to zero */
-           gsl_vector_complex_set(eval,i,eval_i); /* redefine vector eval */
-         }
+        if(GSL_REAL(eval_i)>0.0){
+          printf ("eigenvalue = %g + %gi\n",GSL_REAL(eval_i), GSL_IMAG(eval_i)); /* print out positive eigenvalues */
+          /** GSL_REAL(eval_i)=0.0; This may or may not work. To be sure we must use GSL_REAL_SET */
+          GSL_SET_REAL(&eval_i,0.0); /* set them to zero */
+          gsl_vector_complex_set(eval,i,eval_i); /* redefine vector eval */
+        }
       } 
 
     for (i = 0; i < Nq; i++) /* Test: Are the eigenvalues really all negative now? */
       {
         gsl_complex eval_i    
-           = gsl_vector_complex_get(eval, i);
+          = gsl_vector_complex_get(eval, i);
 
-         if(GSL_REAL(eval_i)>0.0){ 
-           printf ("eigenvalue2 = %g + %gi\n",GSL_REAL(eval_i), GSL_IMAG(eval_i));
-         }
+        if(GSL_REAL(eval_i)>0.0){
+          printf ("eigenvalue2 = %g + %gi\n",GSL_REAL(eval_i), GSL_IMAG(eval_i));
+        }
       }         
 
-      diag = my_diag_alloc(eval); /* diagonalized matrix of data  ->D */
+    diag = my_diag_alloc(eval); /* diagonalized matrix of data  ->D */
 
-  /** -------------- Reconstruct scattering matrix -------------- */
+    /** -------------- Reconstruct scattering matrix -------------- */
 
-  gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, alpha, evec, diag, beta, First); /* P*D  */
+    gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, alpha, evec, diag, beta, First); /* P*D  */
 
-/* Get the inverse of matrix evec: */
+    /* Get the inverse of matrix evec: */
 
-  gsl_linalg_complex_LU_decomp(evec, p, &s);    /* Have to decomposit evec into triangular matrices to find its inverse. This overwrites evec! */
-  gsl_linalg_complex_LU_invert(evec, p, inv); 
+    gsl_linalg_complex_LU_decomp(evec, p, &s);    /* Have to decomposit evec into triangular matrices to find its inverse. This overwrites evec! */
+    gsl_linalg_complex_LU_invert(evec, p, inv);
 
-  gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, alpha, First, inv, beta, Corrected); /* P*D*P^(-1) */
+    gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, alpha, First, inv, beta, Corrected); /* P*D*P^(-1) */
  
     for (index_q=0; index_q<Nq; index_q++){
       for (index_qpr=0; index_qpr<Nq; index_qpr++){
@@ -8922,17 +8922,22 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
         S2[index_l*Nq*Nq+index_q*Nq+index_qpr] = b ;
       }
     }
-/* Don't I have to free all these pointers here? If I free them, I get an error message... */ 
- /* free(data); 
+  }
+
+  /* Don't I have to free all these pointers here? If I free them, I get an error message...
+     They have to be free, but only AFTER the index_l loop where they are used! */
+  /* free(data); data should never have been allocated in the first place :) */
   gsl_permutation_free(p);
   gsl_vector_complex_free(eval);
   gsl_matrix_complex_free(evec);
   gsl_matrix_complex_free(inv);
-  gsl_matrix_complex_free(diag); */
-  }
+  gsl_matrix_complex_free(diag);
 
- /* free(Z); */
-  
+  free(Z);
+  free(S);
+
+  gsl_eigen_nonsymmv_free(w);
+
   return _SUCCESS_;
 }
 

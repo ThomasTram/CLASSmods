@@ -834,6 +834,8 @@ extern "C" {
   int Km_integ(void *param, double x, double *fx);
 
   int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec);
+
+  int compute_full_scatter(double *S2, struct background * pba, struct perturbs * ppt, int lmax);
   
 
 #ifdef __cplusplus
