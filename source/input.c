@@ -1255,6 +1255,7 @@ int input_read_parameters(
       ppt->has_perturbations = _TRUE_;
       class_read_int("switch_gamma",ppt->switch_gamma);
       class_read_int("switch_radiation_source",ppt->switch_radiation_source);
+      class_read_int("switch_dr_source",ppt->switch_dr_source);
     }
 
   }
@@ -2712,6 +2713,7 @@ int input_default_params(
 
   ppt->switch_gamma = 1;
   ppt->switch_radiation_source = 1;
+  ppt->switch_dr_source = 1;
 
   ppt->has_ad=_TRUE_;
   ppt->has_bi=_FALSE_;

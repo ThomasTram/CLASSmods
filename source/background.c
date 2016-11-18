@@ -1675,7 +1675,7 @@ int background_solve(
   pba->background_table[i*pba->bg_size+pba->index_bg_bwdec] = yinout[1];
 
   for (i=pba->bt_size-1; i>=1; i--){
-    printf("%d, %.4e, %.4e\n",i,yinout[0],yinout[1]);
+    //printf("%d, %.4e, %.4e\n",i,yinout[0],yinout[1]);
     /* -> perform one step */
     class_call(generic_integrator(background_bwderivs,
                                   pba->tau_table[i],
@@ -2188,7 +2188,7 @@ int background_derivs(
   dy[pba->index_bi_grow] = y[pba->index_bi_grow_prime];
   dy[pba->index_bi_Wronskian] = -a*H*y[pba->index_bi_Wronskian];
   dy[pba->index_bi_decay] = y[pba->index_bi_grow_prime]/y[pba->index_bi_grow]*y[pba->index_bi_decay]-y[pba->index_bi_Wronskian]/y[pba->index_bi_grow];
-  fprintf(stderr,"%.2e %.2e, %.2e\n",a,y[pba->index_bi_grow_prime]/y[pba->index_bi_grow]*y[pba->index_bi_decay],y[pba->index_bi_Wronskian]/y[pba->index_bi_grow]);
+  //fprintf(stderr,"%.2e %.2e, %.2e\n",a,y[pba->index_bi_grow_prime]/y[pba->index_bi_grow]*y[pba->index_bi_decay],y[pba->index_bi_Wronskian]/y[pba->index_bi_grow]);
 
   return _SUCCESS_;
 

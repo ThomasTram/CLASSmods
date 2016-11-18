@@ -163,6 +163,7 @@ struct perturbs
 
   int switch_gamma; /**< In L computation, do we want to include gamma? */
   int switch_radiation_source; /**< In L computation, do we want to include Phi-contributions from relativistic species? */
+  int switch_dr_source;
 
   int store_perturbations;  /**< Do we want to store perturbations? */
   int k_output_values_num;       /**< Number of perturbation outputs (default=0) */

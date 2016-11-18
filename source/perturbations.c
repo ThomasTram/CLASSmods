@@ -6328,7 +6328,7 @@ int perturb_sources(
       double theta_Nb_evo =  theta_nb;
       double CHT_grow = 0.;
       double CHT_decay = 0.;
-
+      double I_dcdm=0.;
 
       if (ppw->approx[ppw->index_ap_levo] == (int)levo_on){
         delta_N = y[ppw->pv->index_pt_delta_N];
@@ -6337,9 +6337,11 @@ int perturb_sources(
         theta_Nb_evo = y[ppw->pv->index_pt_theta_Nb];
         CHT_grow = y[ppw->pv->index_pt_CHT_grow];
         CHT_decay = y[ppw->pv->index_pt_CHT_decay];
+        if (pba->has_dcdm==_TRUE_)
+          I_dcdm = y[ppw->pv->index_pt_integ_decay_dcdm];
       }
 
-      _set_source_(  ppt->index_tp_L_prime) = ppw->PhiExtra;//delta_N; // (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; //
+      _set_source_(  ppt->index_tp_L_prime) = I_dcdm;//ppw->PhiExtra;//delta_N; // (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; //
       //  here instead of the derivative (delta_N- delta_cdm_plus_b_nb)/k provides an alternative way to compute L for testing.
       _set_source_(  ppt->index_tp_delta_N) =  delta_N;
       _set_source_(  ppt->index_tp_theta_N) =  theta_N;
@@ -7941,10 +7943,10 @@ int perturb_derivs(double tau,
         /** Compute gamma */
         gamma = 4.5 * a * a / k /k * ppw->rho_plus_p_shear - 3. / k/k * (ppw->HCA_nb_prime + a_prime_over_a * ppw->HCA_nb);
         /** Compute radiation source */
-        radiation_source = 3.*p_ur*(delta_ur+4./k/k*a_prime_over_a * theta_tot)+
-          3.*p_g*(delta_g + 4./k/k * a_prime_over_a *theta_tot);
+        radiation_source = ppt->switch_radiation_source*(3.*p_ur*(delta_ur+4./k/k*a_prime_over_a * theta_tot)+
+                                                         3.*p_g*(delta_g + 4./k/k * a_prime_over_a *theta_tot));
         if (pba->has_dr == _TRUE_)
-          radiation_source += 3.*p_dr*(delta_dr + (4.*a_prime_over_a-a*pba->Gamma_dcdm*rho_dcdm/pvecback[pba->index_bg_rho_dr])/k/k *theta_tot);
+          radiation_source += ppt->switch_dr_source*3.*p_dr*(delta_dr + (4.*a_prime_over_a-a*pba->Gamma_dcdm*rho_dcdm/pvecback[pba->index_bg_rho_dr])/k/k *theta_tot);
 
         //radiation_source =  3.*p_g*(delta_g + 4./k/k * a_prime_over_a*y[pv->index_pt_theta_cdm]);
 
@@ -7952,20 +7954,20 @@ int perturb_derivs(double tau,
 
         dy[pv->index_pt_L_prime] = - a_prime_over_a * y[pv->index_pt_L_prime]  + 1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_L]
           -  ppt->switch_gamma * k * gamma
-          -  ppt->switch_radiation_source * 1.5 * a * a / k *(  radiation_source )
-          + 1.5*a*a/k*rho_cdm_plus_b*y[pv->index_pt_integ_decay_dcdm];
+          -  1.5 * a * a / k *(  radiation_source )
+          + ppt->switch_dr_source*1.5*a*a/k*rho_cdm_plus_b*y[pv->index_pt_integ_decay_dcdm];
 
         dy[pv->index_pt_delta_Nb] = - y[pv->index_pt_theta_Nb] ;
 
         dy[pv->index_pt_theta_Nb] =  - a_prime_over_a * y[pv->index_pt_theta_Nb] -1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_delta_Nb]
            -  ppt->switch_gamma * k*k * gamma
-          -  ppt->switch_radiation_source * 1.5 * a * a *(  radiation_source );
+          -  1.5 * a * a *(  radiation_source );
 
         ppw->PhiExtra =   2.*(ppt->switch_gamma * k*k * gamma +  ppt->switch_radiation_source * 1.5 * a * a *(  radiation_source ))/
           (3*a*a*k*k*(3.*p_ur+3.*p_g));
 
         /** Differential system for H_T growth factors: */
-        double S_tilde = -ppt->switch_gamma*k*k*gamma - ppt->switch_radiation_source*1.5*a*a*(radiation_source);
+        double S_tilde = -ppt->switch_gamma*k*k*gamma - 1.5*a*a*(radiation_source);
         double Dgrow = pvecback[pba->index_bg_grow];
         double Ddecay = pvecback[pba->index_bg_bwdec];
         double denom_grow, denom_decay;
