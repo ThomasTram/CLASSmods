@@ -29,7 +29,7 @@ setup(
     cmdclass={'build_ext': build_ext},
     ext_modules=[Extension("classy", ["classy.pyx"],
                            include_dirs=[nm.get_include(), "../include"],
-                           libraries=["class"],
+                           libraries=["class","blas","gsl"],
                            library_dirs=["../", GCCPATH],
                            extra_link_args=['-lgomp'],
                            )],

@@ -39,7 +39,7 @@ OMPFLAG   = -fopenmp
 
 # all other compilation flags
 CCFLAG = -g -fPIC
-LDFLAG = -g -fPIC
+LDFLAG = -g -fPIC -lblas -lgsl
 
 # leave blank to compile without HyRec, or put path to HyRec directory
 # (with no slash at the end: e.g. hyrec or ../hyrec)
