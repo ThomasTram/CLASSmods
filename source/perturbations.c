@@ -7990,7 +7990,7 @@ int perturb_derivs(double tau,
 
         /** If we have decaying DM, we must follow the integrated lapse perturbation */
         if (pba->has_dcdm==_TRUE_)
-          dy[pv->index_pt_integ_decay_dcdm] = pba->Gamma_dcdm*rho_dcdm/rho_cdm_plus_b*a*
+          dy[pv->index_pt_integ_decay_dcdm] = - /*CF I have added a minus sign here, which seems to be needed. But I am not completely sure if this is now 100% consistent*/ pba->Gamma_dcdm*rho_dcdm/rho_cdm_plus_b*a*
             ((y[pv->index_pt_delta_cdm]*pvecback[pba->index_bg_rho_cdm]+
               y[pv->index_pt_delta_b]*pvecback[pba->index_bg_rho_b]+
               y[pv->index_pt_delta_dcdm]*pvecback[pba->index_bg_rho_dcdm])/rho_cdm_plus_b-
