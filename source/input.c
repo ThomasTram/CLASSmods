@@ -1022,12 +1022,16 @@ int input_read_parameters(
     class_read_double("G_eff",pba->G_eff);
     class_read_double("T_inu",pba->T_inu);
     /** Compute unit conversion factor and normalisation for inu: */
-    pba->inu_norm = 3./2.*_zeta3_/pow(2.*_PI_,3)*pow(pba->T_inu*pba->T_cmb*_k_B_,5)*pow(pba->G_eff/(1e12*_eV_*_eV_),2)*(2.*_PI_/_h_P_)/_c_*_Mpc_over_m_;
+    pba->inu_norm = 7.*pow(_PI_,4.)/720.*2./pow(2.*_PI_,3)*pow(pba->T_inu*pba->T_cmb*_k_B_,5)*pow(pba->G_eff/(1e12*_eV_*_eV_),2)*(2.*_PI_/_h_P_)/_c_*_Mpc_over_m_;
+ //3./2.*_zeta3_/pow(2.*_PI_,3)*pow(pba->T_inu*pba->T_cmb*_k_B_,5)*pow(pba->G_eff/(1e12*_eV_*_eV_),2)*(2.*_PI_/_h_P_)/_c_*_Mpc_over_m_;
     //printf("Did this work? %.16e\n",pow(_k_B_,5)/pow(1e6*_eV_,4)*(2.*_PI_/_h_P_)/_c_*_Mpc_over_m_);
 
 
     class_read_double("G_eff_CYR",pba->G_eff_CYR);
 
+    class_read_double("qmin_inu",pba->qmin_inu);
+    class_read_double("qmax_inu",pba->qmax_inu);
+    class_read_double("quadrature_method_inu",pba->quadrature_method_inu);
 
     /* Isabel: For the massless case we need to read in tables of background distribution function, see ncdm */
     /* Thomas: For NCDM we needed the call here in order to relate mass and Omega. For inu it is better to have
@@ -2836,6 +2840,10 @@ int input_default_params(
   pba->T_inu = pow(4./11.,1./3.);
   pba->G_eff = 0.0;
   pba->G_eff_CYR = 0.0;
+
+  pba->qmin_inu = 0.1;
+  pba->qmax_inu = 15.;
+  pba->quadrature_method_inu = 1;
 
   pba->Omega0_scf = 0.; /* Scalar field defaults */
   pba->attractor_ic_scf = _TRUE_;

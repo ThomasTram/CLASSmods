@@ -546,13 +546,15 @@ int background_init(
       /** - loop over momenta */
       int index_q;
       double q2;
-      double rho_inu = 0;
+      double rho_inu = 0.;
       for (index_q=0; index_q<pba->q_size_inu; index_q++) {
         /* squared momentum */
         rho_inu += pow(pba->q_inu[index_q],3)*pba->w_inu[index_q];
-      }
-      rho_inu *= pba->factor_inu;
-      printf(" -> inu species has N_eff = %g (sumed over ultra-relativistic and ncdm species)\n",rho_inu/rho_nu_rel);
+      } 
+
+      rho_inu *= pba->factor_inu; 
+  
+      printf(" -> inu species has N_eff = %g (sumed over ultra-relativistic and inu species)\n",rho_inu/rho_nu_rel);
 
     }
   }
@@ -1091,7 +1093,8 @@ int background_inu_distribution(
 
     /* NEW3: Should not use Fermi-Dirac, but Maxwell-Boltzmann with the corresponding normalization factor N=3/4*Zeta(3). In contrast to ncdm this definition does NOT count for neutrinos AND anti-neutrinos and also does NOT include the factor 1/(2Pi)^3. */
 
-  *f0 =  2./pow(2*_PI_,3.)*3./4.*_zeta3_*exp(-q);
+  *f0 = 2./pow(2*_PI_,3.)*7.*pow(_PI_,4.)/720.*exp(-q);
+  //2./pow(2*_PI_,3.)*3./4.*_zeta3_*exp(-q);
   //*f0 =  2./pow(2*_PI_,3.)/(exp(q)+1.);
 
   return _SUCCESS_;
@@ -1368,6 +1371,9 @@ int background_inu_init(
                            ppr->tol_inu,
                            NULL,
                            0,
+			   pba->qmin_inu,
+		           pba->qmax_inu,
+                           pba->quadrature_method_inu,
                            background_inu_test_function,
                            background_inu_distribution,
                            &pbadist,
@@ -1435,6 +1441,18 @@ int background_inu_init(
     /3./pow(_h_P_/2./_PI_,3)/pow(_c_,7)*_Mpc_over_m_*_Mpc_over_m_;
   /** This definition will work for now but has to modified in the massless case */
   pba->factor_inu *= pba->Omega0_inu/(7./8.*pow(4./11.,4./3.)*pba->Omega0_g);
+
+      double rho_inu = 0.;
+      double fudge_inu;
+      for (index_q=0; index_q<pba->q_size_inu; index_q++) {
+        /* squared momentum */
+        rho_inu += pow(pba->q_inu[index_q],3)*pba->w_inu[index_q];
+      } 
+   
+   fudge_inu= 2./pow(2*_PI_,3.)*7.*pow(_PI_,4.)/720.*6./rho_inu; /* exact expression divided by numerical value */
+
+   pba->factor_inu *= fudge_inu;
+
   //printf(" ncdm factor: %g\n inu factor: %g\n inu multiply: %g\n",
   //       pba->factor_ncdm[0],pba->factor_inu,pba->Omega0_inu/(7./8.*pow(4./11.,4./3.)*pba->Omega0_g));
 
@@ -2487,6 +2505,9 @@ int get_qsampling_inu(double *x,
                       double rtol,
                       double *qvec,
                       int qsiz,
+		      double qmin,
+                      double qmax,
+		      int quadrature_method,
                       int (*test)(void * params_for_function, double q, double *psi),
                       int (*function)(void * params_for_function, double q, double *f0),
                       void * params_for_function,
@@ -2497,10 +2518,10 @@ int get_qsampling_inu(double *x,
   *N = (int) rtol;
   class_test((*N)>N_max,errmsg,"Too many momentum bins in INU.");
 
-  if (1==1){
+  if (quadrature_method==1){
     /** Standard trapezoidal rule with qmin and qmax: */
-    double qmin = 0.1;
-    double qmax = 12.0;
+    //double qmin = 0.1;
+    //double qmax = 12.0;
 
     dq = (qmax-qmin)/((*N)-1);
     for (i=0; i<(*N); i++){
@@ -2512,7 +2533,7 @@ int get_qsampling_inu(double *x,
         w[i] *= dq;
     }
   }
-  else if (0==1){
+  else if (quadrature_method==2){
     /** Transform using q=t/(1-t) */
     dt = 1.0/((*N)+1);
     for (i=0; i<(*N); i++){
@@ -2525,11 +2546,11 @@ int get_qsampling_inu(double *x,
   }
   else{
     double xext=3.1;
-    double xmin=1e-4;
-    double xmax=100.;
+   // double xmin=1e-4;
+   // double xmax=15.;
     double k1,k2,eps1,eps2;
-    k1 = xmin/xext;
-    k2 = xmax/xext;
+    k1 = qmin/xext;
+    k2 = qmax/xext;
     eps2 = (1+k1)/(k2-k1);
     eps1 = k1*(1+eps2);
 
@@ -2545,10 +2566,6 @@ int get_qsampling_inu(double *x,
       w[i] *=(1.+eps1+eps2)*xext/pow(1+eps2-t,2);
     }
   }
-
-
-    
-
 
   
   return _SUCCESS_;

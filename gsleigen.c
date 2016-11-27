@@ -3,6 +3,7 @@
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_eigen.h>
+#include "gsl/gsl_complex_math.h"
 
 int
 main (void)
@@ -18,7 +19,7 @@ main (void)
                     100.0, 16.0, 4.0, 2.0 };
  
   gsl_matrix_view m
-    = gsl_matrix_view_array (data, 4, 4); /* interpret data as 4x4 matrix, probably has to be gsl_matrix_view_vector later*/
+    = gsl_matrix_view_array (data2, 4, 4); /* interpret data as 4x4 matrix, probably has to be gsl_matrix_view_vector later*/
 
   gsl_vector_complex *eval = gsl_vector_complex_alloc (4); /* allocate vector for eigenvalues */
   gsl_matrix_complex *evec = gsl_matrix_complex_alloc (4, 4); /* allocate matrix of eigenvectors (matrix that diagonalizes data) */ 
@@ -39,8 +40,8 @@ main (void)
   gsl_eigen_nonsymmv_sort (eval, evec,
                            GSL_EIGEN_SORT_ABS_DESC); /* sorts eigenvalues and matrix evec according to the size of eigenvalue */
 
-  gsl_matrix_complex * my_diag_alloc(gsl_vector_complex * X) /* function that makes a diagonal matrix from a vector*/
-{
+ /* gsl_matrix_complex * my_diag_alloc(gsl_vector_complex * X) /* function that makes a diagonal matrix from a vector*/
+/* {
     gsl_matrix_complex * mat = gsl_matrix_complex_alloc(X->size, X->size);
     gsl_vector_complex_view diag = gsl_matrix_complex_diagonal(mat);
     gsl_complex zero; 
@@ -48,9 +49,9 @@ main (void)
     gsl_matrix_complex_set_all(mat,zero); 
     gsl_vector_complex_memcpy(&diag.vector, X);
     return mat;
-}
+} */
 
-  diag = my_diag_alloc(eval); /* diagonalized matrix of m */
+/*  diag = my_diag_alloc(eval); /* diagonalized matrix of m */
 
   {
     int i, j;
@@ -82,7 +83,27 @@ main (void)
   GSL_SET_COMPLEX (&alpha, 1.0, 0.0);
   GSL_SET_COMPLEX (&beta, 0.0, 0.0); 
 
-  gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, alpha, evec, diag, beta, First); /* P*D  */
+ /* gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, alpha, evec, diag, beta, First); /* P*D  */
+
+  {
+    int i, j;
+
+    for (i = 0; i < 4; i++) /* P*D */
+      {
+        gsl_complex eval_i    /* get eigenvalue number i */
+           = gsl_vector_complex_get (eval, i);
+        gsl_vector_complex_view evec_i
+           = gsl_matrix_complex_column (evec, i); /* get eigenvector number i */
+
+        for (j = 0; j < 4; ++j)
+          {
+            gsl_complex z = gsl_vector_complex_get(&evec_i.vector, j);
+            gsl_complex y = gsl_complex_mul(eval_i,z); 
+            gsl_matrix_complex_set(First,j,i,gsl_complex_mul(eval_i,z));
+          }
+      }
+  }
+
 
 /* Get the inverse of matrix evec: */
 

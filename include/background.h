@@ -321,6 +321,9 @@ struct background
   int q_size_inu_bg; /* Size of the q_inu_bg arrays */
   int q_size_inu;    /* Size of the q_inu arrays */
   double factor_inu; /* List of normalization factors for calculating energy density etc.*/
+  double qmin_inu;
+  double qmax_inu;
+  int quadrature_method_inu;
 
   //@}
 
@@ -564,6 +567,9 @@ extern "C" {
                         double rtol,
                         double *qvec,
                         int qsiz,
+                        double qmin,
+                        double qmax,
+		        int quadrature_method,
                         int (*test)(void * params_for_function, double q, double *psi),
                         int (*function)(void * params_for_function, double q, double *f0),
                         void * params_for_function,

@@ -12,6 +12,7 @@
 #include <gsl/gsl_blas.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_eigen.h>
+#include <gsl/gsl_complex_math.h>
 
 #ifdef _OPENMP
 #include "omp.h"

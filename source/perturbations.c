@@ -8799,7 +8799,7 @@ int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec){
 
 int compute_full_scatter(double *S2, struct background * pba, struct perturbs * ppt, int lmax){
   int Nq = pba->q_size_inu;
-  int i, s;
+  int i, j, s;
   double *qvec = pba->q_inu;
   double *wvec = pba->w_inu;
   int index_q, index_qpr, index_l;
@@ -8813,7 +8813,6 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
 
   gsl_vector_complex *eval = gsl_vector_complex_alloc (Nq); /* allocate vector for eigenvalues */
   gsl_matrix_complex *evec = gsl_matrix_complex_alloc (Nq, Nq); /* allocate matrix of eigenvectors (matrix that diagonalizes S) ->P*/ 
-  gsl_matrix_complex *diag = gsl_matrix_complex_alloc (Nq, Nq); /* diagonalized matrix of data -> D*/
   gsl_matrix_complex *inv = gsl_matrix_complex_alloc (Nq, Nq);  /* inverse of matrix P */
   gsl_matrix_complex *First = gsl_matrix_complex_alloc (Nq, Nq); /* P*D */
   gsl_matrix_complex *Corrected = gsl_matrix_complex_alloc (Nq, Nq); /* P*D*P^(-1) */
@@ -8824,19 +8823,6 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
       Okay this matrix needs to be indexed with index_l as outer index since
       we will need to call matrix methods on the [index_q][index_qpr] sub matrix. */
   S = malloc(sizeof(double)*(lmax+1)*Nq*Nq); /* scattering matrix */
-
-  //data = malloc(sizeof(double)*Nq*Nq);
-
-  gsl_matrix_complex * my_diag_alloc(gsl_vector_complex * X) /* define function that makes a diagonal matrix from a vector*/
-{
-    gsl_matrix_complex * mat = gsl_matrix_complex_alloc(X->size, X->size);
-    gsl_vector_complex_view diag = gsl_matrix_complex_diagonal(mat);
-    gsl_complex zero; 
-    GSL_SET_COMPLEX (&zero, 0.0, 0.0);
-    gsl_matrix_complex_set_all(mat,zero); 
-    gsl_vector_complex_memcpy(&diag.vector, X);
-    return mat;
-}
 
   /** -------------- Define scattering matrix S -------------- */ 
 
@@ -8870,10 +8856,8 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
 
     /* interpret data as NqxNq matrix: index_q labels the line, index_qpr the column */
     gsl_matrix_view m = gsl_matrix_view_array(data, Nq, Nq); /* or should I use gsl_matrix_view_vector??? No, array is correct since data is a double pointer */
-  
-    gsl_eigen_nonsymmv(&m.matrix, eval, evec, w); /* This overwrites m/data! */
 
-    gsl_eigen_nonsymmv_sort(eval, evec, GSL_EIGEN_SORT_ABS_DESC); /* sorts eigenvalues and matrix evec according to the size of eigenvalue */
+   gsl_eigen_nonsymmv(&m.matrix, eval, evec, w); /* This overwrites m/data/S! */
 
     /** -------------- Set positive eigenvalues to 0 -------------- */
 
@@ -8883,8 +8867,7 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
           = gsl_vector_complex_get (eval, i);
 
         if(GSL_REAL(eval_i)>0.0){
-          printf ("eigenvalue = %g + %gi\n",GSL_REAL(eval_i), GSL_IMAG(eval_i)); /* print out positive eigenvalues */
-          /** GSL_REAL(eval_i)=0.0; This may or may not work. To be sure we must use GSL_REAL_SET */
+          printf ("eigenvalue (%d)= %g + %gi\n", index_l, GSL_REAL(eval_i), GSL_IMAG(eval_i)); /* print out positive eigenvalues */
           GSL_SET_REAL(&eval_i,0.0); /* set them to zero */
           gsl_vector_complex_set(eval,i,eval_i); /* redefine vector eval */
         }
@@ -8896,15 +8879,24 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
           = gsl_vector_complex_get(eval, i);
 
         if(GSL_REAL(eval_i)>0.0){
-          printf ("eigenvalue2 = %g + %gi\n",GSL_REAL(eval_i), GSL_IMAG(eval_i));
+          printf ("eigenvalue2 (%d) = %g + %gi\n", index_l, GSL_REAL(eval_i), GSL_IMAG(eval_i));
         }
       }         
 
-    diag = my_diag_alloc(eval); /* diagonalized matrix of data  ->D */
-
     /** -------------- Reconstruct scattering matrix -------------- */
 
-    gsl_blas_zgemm(CblasNoTrans, CblasNoTrans, alpha, evec, diag, beta, First); /* P*D  */
+    for (i = 0; i < Nq; i++) /* P*D */
+      {
+        gsl_complex eval_i = gsl_vector_complex_get (eval, i); /* get eigenvalue number i */
+        gsl_vector_complex_view evec_i = gsl_matrix_complex_column (evec, i); /* get eigenvector number i */
+
+        for (j = 0; j < Nq; j++)
+          {
+            gsl_complex z = gsl_vector_complex_get(&evec_i.vector, j);
+            gsl_complex y = gsl_complex_mul(eval_i,z); 
+            gsl_matrix_complex_set(First,j,i,y);
+          }
+      }
 
     /* Get the inverse of matrix evec: */
 
@@ -8922,6 +8914,7 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
         S2[index_l*Nq*Nq+index_q*Nq+index_qpr] = b ;
       }
     }
+
   }
 
   /* Don't I have to free all these pointers here? If I free them, I get an error message...
@@ -8931,7 +8924,6 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
   gsl_vector_complex_free(eval);
   gsl_matrix_complex_free(evec);
   gsl_matrix_complex_free(inv);
-  gsl_matrix_complex_free(diag);
 
   free(Z);
   free(S);
