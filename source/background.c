@@ -2517,6 +2517,7 @@ int get_qsampling_inu(double *x,
   double dq, dt, t, ytmp;
   *N = (int) rtol;
   class_test((*N)>N_max,errmsg,"Too many momentum bins in INU.");
+  printf("quadrature_method= %d\n",quadrature_method);
 
   if (quadrature_method==1){
     /** Standard trapezoidal rule with qmin and qmax: */
