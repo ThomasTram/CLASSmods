@@ -6690,10 +6690,10 @@ int perturb_print_variables(double tau,
         idx+=(ppw->pv->l_max_inu+1);
       }
 
-      //rho_delta_inu *= factor;
-      //rho_plus_p_theta_inu *= k*factor;
-      //rho_plus_p_shear_inu *= 2.0/3.0*factor;
-      //delta_p_inu *= factor/3.;
+      rho_delta_inu *= factor;
+      rho_plus_p_theta_inu *= k*factor;
+      rho_plus_p_shear_inu *= 2.0/3.0*factor;
+      delta_p_inu *= factor/3.;
 
       delta_inu = rho_delta_inu/ppw->pvecback[pba->index_bg_rho_inu];
       theta_inu = rho_plus_p_theta_inu/
@@ -7633,7 +7633,8 @@ int perturb_derivs(double tau,
         if(ppw->approx[ppw->index_ap_ufa] == (int)ufa_off) {
 
           /** -----> exact ur shear */
-          dy[pv->index_pt_shear_ur] = 
+          dy[pv->index_pt_shear_ur] =
+
             0.5*(
                  // standard term
                  8./15.*(y[pv->index_pt_theta_ur]+metric_shear)-3./5.*k*s_l[3]/s_l[2]*y[pv->index_pt_shear_ur+1]
