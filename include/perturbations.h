@@ -423,6 +423,9 @@ struct perturb_vector
   int index_pt_psi0_inu;
   int l_max_inu;
   int q_size_inu;
+  int index_pt_Delta_n_inu;
+  int index_pt_Delta_rho_inu;
+  int index_pt_Delta_momentum_inu;
 
   int index_pt_eta;       /**< synchronous gauge metric perturbation eta*/
   int index_pt_phi;
