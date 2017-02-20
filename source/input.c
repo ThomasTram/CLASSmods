@@ -3128,11 +3128,11 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->tol_ncdm_bg = 1.e-5;
   ppr->tol_ncdm_initial_w=1.e-3;
 
-  ppr->tol_inu = 1.e-3;
-  ppr->tol_inu_synchronous = 1.e-5;
+  ppr->tol_inu = 10.;
+  ppr->tol_inu_synchronous = 10.;
 //1.e-5;
-  ppr->tol_inu_newtonian = 1.e-5;
-  ppr->tol_inu_bg = 1.e-5;
+  ppr->tol_inu_newtonian = 10.;
+  ppr->tol_inu_bg = 10.;
 
   /**
    * - parameters related to the thermodynamics
