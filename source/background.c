@@ -1362,7 +1362,7 @@ int background_inu_init(
   class_alloc(pba->q_inu,_QUADRATURE_MAX_*sizeof(double),pba->error_message);
   class_alloc(pba->w_inu,_QUADRATURE_MAX_*sizeof(double),pba->error_message);
 
-  printf("tol_inu = %g\n",ppr->tol_inu);
+  //printf("tol_inu = %g\n",ppr->tol_inu);
 
   class_call(get_qsampling_inu(pba->q_inu,
                            pba->w_inu,
@@ -2517,7 +2517,7 @@ int get_qsampling_inu(double *x,
   double dq, dt, t, ytmp;
   *N = (int) rtol;
   class_test((*N)>N_max,errmsg,"Too many momentum bins in INU.");
-  printf("quadrature_method= %d\n",quadrature_method);
+  //printf("quadrature_method= %d\n",quadrature_method);
 
   if (quadrature_method==1){
     /** Standard trapezoidal rule with qmin and qmax: */
