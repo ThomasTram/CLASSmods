@@ -2842,7 +2842,7 @@ int input_default_params(
   pba->G_eff_CYR = 0.0;
 
   pba->qmin_inu = 0.1;
-  pba->qmax_inu = 15.;
+  pba->qmax_inu = 24.;
   pba->quadrature_method_inu = 1;
 
   pba->Omega0_scf = 0.; /* Scalar field defaults */
@@ -3128,11 +3128,11 @@ int input_default_precision ( struct precision * ppr ) {
   ppr->tol_ncdm_bg = 1.e-5;
   ppr->tol_ncdm_initial_w=1.e-3;
 
-  ppr->tol_inu = 10.;
-  ppr->tol_inu_synchronous = 10.;
+  ppr->tol_inu = 24.;
+  ppr->tol_inu_synchronous = 24.;
 //1.e-5;
-  ppr->tol_inu_newtonian = 10.;
-  ppr->tol_inu_bg = 10.;
+  ppr->tol_inu_newtonian = 24.;
+  ppr->tol_inu_bg = 24.;
 
   /**
    * - parameters related to the thermodynamics

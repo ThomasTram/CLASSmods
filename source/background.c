@@ -1095,7 +1095,7 @@ int background_inu_distribution(
 
   *f0 = 2./pow(2*_PI_,3.)*7.*pow(_PI_,4.)/720.*exp(-q);
   //2./pow(2*_PI_,3.)*3./4.*_zeta3_*exp(-q);
-  //*f0 =  2./pow(2*_PI_,3.)/(exp(q)+1.);
+  // *f0 =  2./pow(2*_PI_,3.)/(exp(q)+1.);
 
   return _SUCCESS_;
 }

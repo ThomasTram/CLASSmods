@@ -5625,17 +5625,17 @@ int perturb_total_stress_energy(
         //Jump to next momentum bin:
         idx+=(ppw->pv->l_max_inu+1);
       }
-
-      inu_number_conservation = y[ppw->pv->index_pt_Delta_n_inu]/n_delta_inu;
-      inu_energy_conservation = y[ppw->pv->index_pt_Delta_rho_inu]/rho_delta_inu;
-      inu_momentum_conservation = y[ppw->pv->index_pt_Delta_momentum_inu]/rho_plus_p_theta_inu;
-      inu_quadrupole_violation = 0.;
       
       n_delta_inu *= factor/(pba->a_today/a)/(pba->T_cmb*pba->T_inu*_k_B_);
       rho_delta_inu *= factor;
       rho_plus_p_theta_inu *= k*factor;
       rho_plus_p_shear_inu *= 2.0/3.0*factor;
       delta_p_inu *= factor/3.;
+
+      inu_number_conservation = factor/(pba->a_today/a)/(pba->T_cmb*pba->T_inu*_k_B_)*y[ppw->pv->index_pt_Delta_n_inu];
+      inu_energy_conservation = factor*y[ppw->pv->index_pt_Delta_rho_inu];
+      inu_momentum_conservation = k*factor*y[ppw->pv->index_pt_Delta_momentum_inu]; 
+      inu_quadrupole_violation = 0.;
 
     /*  inu_number_conservation = pba->factor_inu*pow(pba->a_today/a,3)/(pba->T_cmb*pba->T_inu*_k_B_)*y[ppw->pv->index_pt_Delta_n_inu]/n_delta_inu;
       inu_energy_conservation = pba->factor_inu*pow(pba->a_today/a,4)*y[ppw->pv->index_pt_Delta_rho_inu]/rho_delta_inu;
@@ -5651,8 +5651,8 @@ int perturb_total_stress_energy(
         ppw->shear_inu = rho_plus_p_shear_inu/
           (4.0/3.0*ppw->pvecback[pba->index_bg_rho_inu]);
         ppw->inu_number_conservation = inu_number_conservation;
-        ppw->inu_energy_conservation = inu_energy_conservation;
-        ppw->inu_momentum_conservation = inu_momentum_conservation;
+        ppw->inu_energy_conservation = inu_energy_conservation/ppw->pvecback[pba->index_bg_rho_inu];
+        ppw->inu_momentum_conservation = inu_momentum_conservation/(4.0/3.0*ppw->pvecback[pba->index_bg_rho_inu]);
         ppw->inu_quadrupole_violation = inu_quadrupole_violation;
       }
 
@@ -6644,16 +6644,16 @@ int perturb_print_variables(double tau,
         idx+=(ppw->pv->l_max_inu+1);
       }
 
-      inu_number_conservation = y[ppw->pv->index_pt_Delta_n_inu]/n_delta_inu;
-      inu_energy_conservation = y[ppw->pv->index_pt_Delta_rho_inu]/rho_delta_inu;
-      inu_momentum_conservation = y[ppw->pv->index_pt_Delta_momentum_inu]/rho_plus_p_theta_inu;
-      inu_quadrupole_violation = 0.;
-
       n_delta_inu *= factor/(pba->a_today/a)/(pba->T_cmb*pba->T_inu*_k_B_);
       rho_delta_inu *= factor;
       rho_plus_p_theta_inu *= k*factor;
       rho_plus_p_shear_inu *= 2.0/3.0*factor;
       delta_p_inu *= factor/3.;
+
+      inu_number_conservation = factor/(pba->a_today/a)/(pba->T_cmb*pba->T_inu*_k_B_)*y[ppw->pv->index_pt_Delta_n_inu];
+      inu_energy_conservation = factor*y[ppw->pv->index_pt_Delta_rho_inu];
+      inu_momentum_conservation = k*factor*y[ppw->pv->index_pt_Delta_momentum_inu];
+      inu_quadrupole_violation = 0.;
 
       delta_inu = rho_delta_inu/ppw->pvecback[pba->index_bg_rho_inu];
       theta_inu = rho_plus_p_theta_inu/
@@ -6661,6 +6661,9 @@ int perturb_print_variables(double tau,
       shear_inu = rho_plus_p_shear_inu/
         (4.0/3.0*ppw->pvecback[pba->index_bg_rho_inu]);
       delta_p_over_delta_rho_inu = delta_p_inu/rho_delta_inu;
+
+      inu_energy_conservation = inu_energy_conservation/ppw->pvecback[pba->index_bg_rho_inu];
+      inu_momentum_conservation = inu_momentum_conservation/(4.0/3.0*ppw->pvecback[pba->index_bg_rho_inu]);
  
      /* inu_number_conservation = pba->factor_inu*pow(pba->a_today/a,3)/(pba->T_cmb*pba->T_inu*_k_B_)*y[ppw->pv->index_pt_Delta_n_inu]/n_delta_inu;
       inu_energy_conservation = pba->factor_inu*pow(pba->a_today/a,4)*y[ppw->pv->index_pt_Delta_rho_inu]/rho_delta_inu;
@@ -6982,16 +6985,16 @@ int perturb_print_variables(double tau,
         idx+=(ppw->pv->l_max_inu+1);
       }
 
-      inu_number_conservation = y[ppw->pv->index_pt_Delta_n_inu]/n_delta_inu;
-      inu_energy_conservation = y[ppw->pv->index_pt_Delta_rho_inu]/rho_delta_inu;
-      inu_momentum_conservation = y[ppw->pv->index_pt_Delta_momentum_inu]/rho_plus_p_theta_inu;
-      inu_quadrupole_violation = 0.;
-
       n_delta_inu *= factor/(pba->a_today/a)/(pba->T_cmb*pba->T_inu*_k_B_);
       rho_delta_inu *= factor;
       rho_plus_p_theta_inu *= k*factor;
       rho_plus_p_shear_inu *= 2.0/3.0*factor;
       delta_p_inu *= factor/3.;
+
+      inu_number_conservation = factor/(pba->a_today/a)/(pba->T_cmb*pba->T_inu*_k_B_)*y[ppw->pv->index_pt_Delta_n_inu];
+      inu_energy_conservation = factor*y[ppw->pv->index_pt_Delta_rho_inu];
+      inu_momentum_conservation = factor*k*y[ppw->pv->index_pt_Delta_momentum_inu];
+      inu_quadrupole_violation = 0.;
 
       delta_inu = rho_delta_inu/ppw->pvecback[pba->index_bg_rho_inu];
       theta_inu = rho_plus_p_theta_inu/
@@ -6999,6 +7002,9 @@ int perturb_print_variables(double tau,
       shear_inu = rho_plus_p_shear_inu/
         (4.0/3.0*ppw->pvecback[pba->index_bg_rho_inu]);
       delta_p_over_delta_rho_inu = delta_p_inu/rho_delta_inu;
+
+      inu_energy_conservation = inu_energy_conservation/ppw->pvecback[pba->index_bg_rho_inu];
+      inu_momentum_conservation = inu_momentum_conservation/(4.0/3.0*ppw->pvecback[pba->index_bg_rho_inu]);
 
       /* inu_number_conservation = pba->factor_inu*pow(pba->a_today/a,3)/(pba->T_cmb*pba->T_inu*_k_B_)*y[ppw->pv->index_pt_Delta_n_inu]/n_delta_inu;
       inu_energy_conservation = pba->factor_inu*pow(pba->a_today/a,4)*y[ppw->pv->index_pt_Delta_rho_inu]/rho_delta_inu;
@@ -7588,8 +7594,7 @@ int perturb_derivs(double tau,
 
           /** -----> exact ur shear */
           dy[pv->index_pt_shear_ur] =
-
-            0.5*(
+                 0.5*(
                  // standard term
                  8./15.*(y[pv->index_pt_theta_ur]+metric_shear)-3./5.*k*s_l[3]/s_l[2]*y[pv->index_pt_shear_ur+1]
                  // non-standard term, non-zero if cvis2_ur not 1/3
@@ -7598,12 +7603,12 @@ int perturb_derivs(double tau,
           /** -----> exact ur l=3 */
           l = 3;
           dy[pv->index_pt_l3_ur] = k/(2.*l+1.)*
-            (l*2.*s_l[l]*s_l[2]*y[pv->index_pt_shear_ur]-(l+1.)*s_l[l+1]*y[pv->index_pt_l3_ur+1]);
+            (l*2.*s_l[l]*s_l[2]*y[pv->index_pt_shear_ur]-(l+1.)*s_l[l+1]*y[pv->index_pt_l3_ur+1]); 
 
           /** -----> exact ur l>3 */
           for (l = 4; l < pv->l_max_ur; l++) {
             dy[pv->index_pt_delta_ur+l] = k/(2.*l+1)*
-              (l*s_l[l]*y[pv->index_pt_delta_ur+l-1]-(l+1.)*s_l[l+1]*y[pv->index_pt_delta_ur+l+1]);
+              (l*s_l[l]*y[pv->index_pt_delta_ur+l-1]-(l+1.)*s_l[l+1]*y[pv->index_pt_delta_ur+l+1]); 
           }
 
           /** -----> exact ur lmax_ur */
@@ -7621,6 +7626,10 @@ int perturb_derivs(double tau,
           taudot5 = -0.47/pow(a,4)*pow(pba->T_inu*pba->T_cmb*_k_B_,5)*pow(pba->G_eff_CYR/(1e12*_eV_*_eV_),2)*(2.*_PI_/_h_P_)/_c_*_Mpc_over_m_;
           taudot = -0.48/pow(a,4)*pow(pba->T_inu*pba->T_cmb*_k_B_,5)*pow(pba->G_eff_CYR/(1e12*_eV_*_eV_),2)*(2.*_PI_/_h_P_)/_c_*_Mpc_over_m_;
 
+        //  dy[pv->index_pt_delta_ur] += 0.1*taudot2*y[pv->index_pt_delta_ur];
+
+        //  dy[pv->index_pt_theta_ur] += 0.1*taudot2*y[pv->index_pt_theta_ur];
+
           dy[pv->index_pt_shear_ur] += taudot2*y[pv->index_pt_shear_ur];
 
           dy[pv->index_pt_l3_ur] += taudot3*pow(pba->T_inu,5.)*y[pv->index_pt_l3_ur];
@@ -7629,7 +7638,7 @@ int perturb_derivs(double tau,
 
           dy[pv->index_pt_delta_ur+5] +=  taudot5*y[pv->index_pt_delta_ur+l];
 
-          for (l = 6; l < pv->l_max_ur; l++) {
+          for (l = 6; l <= pv->l_max_ur; l++) {
             dy[pv->index_pt_delta_ur+l] +=  taudot*y[pv->index_pt_delta_ur+l];
           } 
 
@@ -7841,12 +7850,12 @@ int perturb_derivs(double tau,
         /** -----> inu shear for given momentum bin */
 
         dy[idx+2] = k/5.0*(2*s_l[2]*y[idx+1]-3.*s_l[3]*y[idx+3])
-          -s_l[2]*metric_shear*2./15.*dlnf0_dlnq;
+          -s_l[2]*metric_shear*2./15.*dlnf0_dlnq; 
 
         /** -----> inu l>3 for given momentum bin */
 
         for(l=3; l<pv->l_max_inu; l++){
-          dy[idx+l] = k/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)]);
+          dy[idx+l] = k/(2.*l+1.0)*(l*s_l[l]*y[idx+(l-1)]-(l+1.)*s_l[l+1]*y[idx+(l+1)]); 
         }
 
         /** -----> inu lmax for given momentum bin (truncation as in Ma and Bertschinger)
@@ -7899,9 +7908,9 @@ int perturb_derivs(double tau,
 	  w_inu = pba->w_inu[index_q];
 	  S_0 = S[index_q*Nq+index_qpr]*y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)];
 	  S_1 = S[Nq*Nq+index_q*Nq+index_qpr]*y[pv->index_pt_psi0_inu+index_qpr*(lmax+1)+1];
-	  dy[pv->index_pt_Delta_n_inu] += w_inu*q*q*y[pv->index_pt_psi0_inu+index_q*(lmax+1)]*S_0;
-	  dy[pv->index_pt_Delta_rho_inu] += w_inu*q*q*q*y[pv->index_pt_psi0_inu+index_q*(lmax+1)]*S_0;
-	  dy[pv->index_pt_Delta_momentum_inu] += w_inu*q*q*q*y[pv->index_pt_psi0_inu+index_q*(lmax+1)+1]*S_1; 
+	  dy[pv->index_pt_Delta_n_inu] += 0.;//w_inu*q*q*y[pv->index_pt_psi0_inu+index_q*(lmax+1)]*S_0;
+	  dy[pv->index_pt_Delta_rho_inu] += 0.;//w_inu*q*q*q*y[pv->index_pt_psi0_inu+index_q*(lmax+1)]*S_0;
+	  dy[pv->index_pt_Delta_momentum_inu] += 0.;//w_inu*q*q*q*y[pv->index_pt_psi0_inu+index_q*(lmax+1)+1]*S_1; 
   	}
       }
 
@@ -8768,7 +8777,30 @@ int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec){
       	else
         lastterm = 0.;
 
-        gk_adapt2(Km_integ, -1, 1, &I, &err, (void *) param, rtol, abstol, _FALSE_);
+        if (index_l == 0){
+		if (qpr < q){
+		I = 8./(q*qpr)*exp(1./2.*(-q+qpr))*(exp(1./2.*(-q-qpr))*(-q*q*(2.+qpr*(2.+qpr)) 
+      		-2.*q*(4.+qpr*(3.+qpr))-2.*(8.+qpr*(4.+qpr)))+2.*exp(-(1./2.)*(q-qpr))*(8.+q*q-q*qpr+qpr*qpr+4.*(q-qpr)));
+		}
+		else {
+		I = 8./(q*qpr)*exp(1./2.*(-q+qpr))*(exp(1./2.*(-q-qpr))*(-q*q*(2.+qpr*(2.+qpr)) 
+      		-2.*q*(4.+qpr*(3.+qpr))-2.*(8.+qpr*(4.+qpr)))+2.*exp(-(1./2.)*(qpr-q))*(8.+q*q-q*qpr+qpr*qpr+4.*(qpr-q)));
+		}
+	}
+        else if (index_l ==1){
+        	if (qpr < q){
+		I =8./(q*q*qpr*qpr)*exp(1./2.*(-q+qpr))*(exp(-1./2.*(q+qpr))*(12.*q*(42.+q*(9.+q))+2.*q*qpr*(148.+q*(38.+5.*q))  
+      		+4.*qpr*qpr*(27.+q*(19.+q*(6.+q)))+(2.+q)*qpr*qpr*qpr*(6.+q*(2.+q))+504.*(2.+qpr))+2.*exp(-(1./2.)*(q-qpr))*(-504.+q*q*q*qpr-54.*qpr*qpr 
+   		-q*q*(54.+qpr*qpr)+q*qpr*(104.+qpr*qpr))-4.*exp(-(1./2.)*(q-qpr))*(3.*q*q-5.*q*qpr+3.*(42.+qpr*qpr))*(q-qpr));
+		}
+		else {
+		I =8./(q*q*qpr*qpr)*exp(1./2.*(-q+qpr))*(exp(-1./2.*(q+qpr))*(12.*q*(42.+q*(9.+q))+2.*q*qpr*(148.+q*(38.+5.*q))  
+      		+4.*qpr*qpr*(27.+q*(19.+q*(6.+q)))+(2.+q)*qpr*qpr*qpr*(6.+q*(2.+q))+504.*(2.+qpr))+2.*exp(-(1./2.)*(qpr-q))*(-504.+q*q*q*qpr-54.*qpr*qpr 
+   		-q*q*(54.+qpr*qpr)+q*qpr*(104.+qpr*qpr))-4.*exp(-(1./2.)*(qpr-q))*(3.*q*q-5.*q*qpr+3.*(42.+qpr*qpr))*(qpr-q));
+		}
+	}
+        else {
+        gk_adapt2(Km_integ, -1, 1, &I, &err, (void *) param, rtol, abstol, _FALSE_);}
 
         Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] = qpr/q*(2.*I-lastterm);
         //Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] = I;
@@ -8823,7 +8855,6 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
         qpr = pba->q_inu[index_qpr];
         class_call(background_inu_distribution(&pba,qpr,&f0qpr),ppt->error_message,ppt->error_message);
         S[index_l*Nq*Nq+index_q*Nq+index_qpr] = Z[index_q*(lmax+1)*Nq+index_l*Nq+index_qpr]*wvec[index_qpr]/f0;
-
         if (index_q==index_qpr){
           /** Add the diagonal C3 term */
           S[index_l*Nq*Nq+index_q*Nq+index_qpr] += -40./3.*q; 
@@ -8865,27 +8896,31 @@ int compute_full_scatter(double *S2, struct background * pba, struct perturbs * 
 
     if(index_l==0){
        if(GSL_REAL(eval0)-GSL_REAL(eval2) >0.){ 
-         GSL_SET_REAL(&eval0,-2.7e-4);
+         //GSL_SET_REAL(&eval0,-2.7e-4);
+	 GSL_SET_REAL(&eval0,0.);
          gsl_vector_complex_set(eval,0,eval0); /* redefine vector eval */
-         GSL_SET_REAL(&eval1,-2.9e-01); 
+         //GSL_SET_REAL(&eval1,-2.9e-01); 
+         GSL_SET_REAL(&eval1,0.); 
          gsl_vector_complex_set(eval,1,eval1);
        }
        else if(GSL_REAL(eval0)-GSL_REAL(eval2) <0.){ /*This is important for Nq<30 */
-         GSL_SET_REAL(&eval1,-2.7e-4);
+         //GSL_SET_REAL(&eval1,-2.7e-4);
+         GSL_SET_REAL(&eval1,0.);
          gsl_vector_complex_set(eval,1,eval1); /* redefine vector eval */
-         GSL_SET_REAL(&eval2,-2.9e-01);
+         //GSL_SET_REAL(&eval2,-2.9e-01);
+         GSL_SET_REAL(&eval2,0.);
          gsl_vector_complex_set(eval,2,eval2);
        }
     }
     else if(index_l==1){
       if(GSL_REAL(eval0)-GSL_REAL(eval1) > 0.){
-        GSL_SET_REAL(&eval0,-1.2e-01); 
-        /*GSL_SET_REAL(&eval0,0.); */
+        //GSL_SET_REAL(&eval0,-1.2e-01); 
+        GSL_SET_REAL(&eval0,0.);
         gsl_vector_complex_set(eval,0,eval0);
       }
       else if(GSL_REAL(eval0)-GSL_REAL(eval1) < 0.){ /*This is important for Nq<30 */
-        GSL_SET_REAL(&eval1,-1.2e-01); 
-        /*GSL_SET_REAL(&eval1,0.); */
+        //GSL_SET_REAL(&eval1,-1.2e-01); 
+        GSL_SET_REAL(&eval1,0.); 
         gsl_vector_complex_set(eval,1,eval1);
       }
     }	
