@@ -8777,7 +8777,8 @@ int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec){
       	else
         lastterm = 0.;
 
-        if (index_l == 0){
+       /* Analytical expressions of scattering kernels at l=0 and l=1:
+       if (index_l == 0){
 		if (qpr < q){
 		I = 8./(q*qpr)*exp(1./2.*(-q+qpr))*(exp(1./2.*(-q-qpr))*(-q*q*(2.+qpr*(2.+qpr)) 
       		-2.*q*(4.+qpr*(3.+qpr))-2.*(8.+qpr*(4.+qpr)))+2.*exp(-(1./2.)*(q-qpr))*(8.+q*q-q*qpr+qpr*qpr+4.*(q-qpr)));
@@ -8800,12 +8801,11 @@ int compute_Zlm(double *Z, int lmax, double *qvec, int size_qvec){
 		}
 	}
         else {
-        gk_adapt2(Km_integ, -1, 1, &I, &err, (void *) param, rtol, abstol, _FALSE_);}
+        gk_adapt2(Km_integ, -1, 1, &I, &err, (void *) param, rtol, abstol, _FALSE_);} */
+
+        gk_adapt2(Km_integ, -1, 1, &I, &err, (void *) param, rtol, abstol, _FALSE_);
 
         Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] = qpr/q*(2.*I-lastterm);
-        //Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr] = I;
-
-	/*printf("Z[q=%g,qpr=%g,l=%d]=%g\n, lastterm=%g\n",q,qpr,index_l,Z[index_q*(lmax+1)*size_qvec+index_l*size_qvec+index_qpr],lastterm); */
 
       }
 
