@@ -6340,13 +6340,14 @@ int perturb_sources(
         if (pba->has_dcdm==_TRUE_)
           I_dcdm = y[ppw->pv->index_pt_integ_decay_dcdm];
       }
+      double H_T_nb =  - 3./k/k* ppw->HCtheta_p_old - 3. * y[ppw->pv->index_pt_phi];
 
-      _set_source_(  ppt->index_tp_L_prime) = I_dcdm;//ppw->PhiExtra;//delta_N; // (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; //
+      _set_source_(  ppt->index_tp_L_prime) = H_T_nb;//ppw->PhiExtra;//delta_N; // (delta_N- delta_cdm_plus_b_nb)/k; // L_prime_gauge; //
       //  here instead of the derivative (delta_N- delta_cdm_plus_b_nb)/k provides an alternative way to compute L for testing.
       _set_source_(  ppt->index_tp_delta_N) =  delta_N;
       _set_source_(  ppt->index_tp_theta_N) =  theta_N;
-      _set_source_(  ppt->index_tp_delta_Nb) =  delta_Nb_evo;
-      _set_source_(  ppt->index_tp_theta_Nb) =  theta_Nb_evo;
+      _set_source_(  ppt->index_tp_delta_Nb) =  CHT_grow;//delta_Nb_evo;
+      _set_source_(  ppt->index_tp_theta_Nb) =  CHT_decay;//theta_Nb_evo;
       _set_source_(  ppt->index_tp_H_T_nm) =  - 3./k/k* ppw->HCtheta_p_old - 3. * y[ppw->pv->index_pt_phi] - k * L_gauge ;
       _set_source_(  ppt->index_tp_A_nm) =  ppw->HCA_nb_old / ppw->pvecback[pba->index_bg_H] / ppw->pvecback[pba->index_bg_a];
       _set_source_(  ppt->index_tp_B_nm) =  theta_nb / k - L_prime_gauge;
