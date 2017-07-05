@@ -1792,6 +1792,10 @@ int spectra_indices(
   class_define_index(psp->index_tr_CHT_grow,ppt->has_source_L,index_tr,1);
   class_define_index(psp->index_tr_CHT_decay,ppt->has_source_L_prime,index_tr,1);
 
+  class_define_index(psp->index_tr_phi,ppt->has_source_phi,index_tr,1);
+  class_define_index(psp->index_tr_psi,ppt->has_source_psi,index_tr,1);
+  
+  
   psp->tr_size = index_tr;
 
   return _SUCCESS_;
@@ -3267,6 +3271,17 @@ int spectra_matter_transfers(
 
         }
 
+	/** Metric transfers: */
+	psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_phi] =
+	  ppt->sources[index_md]
+	  [index_ic * ppt->tp_size[index_md] + ppt->index_tp_phi]
+	  [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
+
+	psp->matter_transfer[((index_tau*psp->ln_k_size + index_k) * psp->ic_size[index_md] + index_ic) * psp->tr_size + psp->index_tr_psi] =
+	  ppt->sources[index_md]
+	  [index_ic * ppt->tp_size[index_md] + ppt->index_tp_psi]
+	  [(index_tau-psp->ln_tau_size+ppt->tau_size) * ppt->k_size[index_md] + index_k];
+
 
       }
     }
@@ -3351,6 +3366,8 @@ int spectra_output_tk_titles(struct background *pba,
       class_store_columntitle(titles,"theta_Nb",ppt->has_source_L_prime);
 
     }
+    class_store_columntitle(titles,"phi",ppt->has_source_phi);
+    class_store_columntitle(titles,"psi",ppt->has_source_psi);
 
   }
 
@@ -3491,7 +3508,9 @@ int spectra_output_tk_data(
             class_store_double(dataptr,tk[psp->index_tr_theta_Nb],ppt->has_source_L_prime,storeidx);
 
           }
-
+	  class_store_double(dataptr,tk[psp->index_tr_phi],ppt->has_source_phi,storeidx);
+	  class_store_double(dataptr,tk[psp->index_tr_psi],ppt->has_source_psi,storeidx);
+            
         }
         else if (output_format == camb_format) {
 

@@ -210,6 +210,8 @@ struct spectra {
   int index_tr_theta_Nb;        /**< index of derivative of spatial gauge displacement transfer function */
   int index_tr_CHT_grow;
   int index_tr_CHT_decay;
+  int index_tr_phi;
+  int index_tr_psi;
   int tr_size;                 /**< total number of species in transfer functions */
 
   double * matter_transfer;   /**< Matter transfer functions.

@@ -671,6 +671,8 @@ int perturb_indices_of_perturbs(
       if (ppt->has_spatial_gauge_transfers == _TRUE_) {
         ppt->has_source_L = _TRUE_;
         ppt->has_source_L_prime = _TRUE_;
+	ppt->has_source_phi = _TRUE_;
+	ppt->has_source_psi = _TRUE_;
       }
 
 
@@ -4577,8 +4579,9 @@ int perturb_initial_conditions(struct precision * ppr,
       velocity_tot = ((4./3.)*(fracg*ppw->pv->y[ppw->pv->index_pt_theta_g]+fracnu*theta_ur) + rho_m_over_rho_r*fracb*ppw->pv->y[ppw->pv->index_pt_theta_b])/(1.+rho_m_over_rho_r);
 
       alpha = (eta + 3./2.*a_prime_over_a*a_prime_over_a/k/k/s2_squared*(delta_tot + 3.*a_prime_over_a/k/k*velocity_tot))/a_prime_over_a;
-
-      ppw->pv->y[ppw->pv->index_pt_phi] = eta - a_prime_over_a*alpha;
+      
+      //      ppw->pv->y[ppw->pv->index_pt_phi] = eta - a_prime_over_a*alpha;
+      ppw->pv->y[ppw->pv->index_pt_phi] = -(3./2.*a_prime_over_a*a_prime_over_a/k/k/s2_squared*(delta_tot + 3.*a_prime_over_a/k/k*velocity_tot));
 
       ppw->pv->y[ppw->pv->index_pt_delta_g] -= 4.*a_prime_over_a*alpha;
       ppw->pv->y[ppw->pv->index_pt_theta_g] += k*k*alpha;
