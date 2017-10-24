@@ -733,6 +733,7 @@ int perturb_indices_of_perturbs(
       class_define_index(ppt->index_tp_B_nm,    ppt->has_source_L_prime, index_type,1);
       class_define_index(ppt->index_tp_CHT_grow,    ppt->has_source_L_prime, index_type,1);
       class_define_index(ppt->index_tp_CHT_decay,    ppt->has_source_L_prime, index_type,1);
+      class_define_index(ppt->index_tp_gamma_Nb,    ppt->has_source_L, index_type,1);
 
       ppt->tp_size[index_md] = index_type;
 
@@ -6298,6 +6299,7 @@ int perturb_sources(
       if (ppw->approx[ppw->index_ap_levo] == (int)levo_on){
         _set_source_(ppt->index_tp_L) = y[ppw->pv->index_pt_L];
       }
+      _set_source_(ppt->index_tp_gamma_Nb) = ppw->gamma_Nb;
     }
     if (ppt->has_source_L_prime == _TRUE_) {
 		
@@ -7939,14 +7941,16 @@ int perturb_derivs(double tau,
         dy[pv->index_pt_theta_N] =  - a_prime_over_a * y[pv->index_pt_theta_N] -1.5 * a*a * rho_cdm_plus_b * y[pv->index_pt_delta_N]  ;
       }
       //The Newtonian density and velocity. These equations are forced to follow the nbody gauge quantities before a_init (setting intiial conditions) and then evolve Newtonian after a_init (linearised nbody simulation). Here the forcing is especially problematic and requires an extremely large ITD. The problem can be fully resolved using an approximation sheme instead.
+      ppw->gamma_Nb = 4.5 * a * a / k /k * ppw->rho_plus_p_shear - 3. / k/k * (ppw->HCA_nb_prime + a_prime_over_a * ppw->HCA_nb);
+
       if (ppw->approx[ppw->index_ap_levo] == (int)levo_on) {
 
         double radiation_source, gamma;
         double theta_tot = ppw->rho_plus_p_theta/rho_plus_p_tot;
 
         /** Compute gamma */
-        gamma = 4.5 * a * a / k /k * ppw->rho_plus_p_shear - 3. / k/k * (ppw->HCA_nb_prime + a_prime_over_a * ppw->HCA_nb);
-        /** Compute radiation source */
+        gamma = ppw->gamma_Nb;
+	/** Compute radiation source */
         radiation_source = ppt->switch_radiation_source*(3.*p_ur*(delta_ur+4./k/k*a_prime_over_a * theta_tot)+
                                                          3.*p_g*(delta_g + 4./k/k * a_prime_over_a *theta_tot));
         if (pba->has_dr == _TRUE_)

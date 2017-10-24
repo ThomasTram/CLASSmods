@@ -212,6 +212,7 @@ struct spectra {
   int index_tr_CHT_decay;
   int index_tr_phi;
   int index_tr_psi;
+  int index_tr_gamma_Nb;
   int tr_size;                 /**< total number of species in transfer functions */
 
   double * matter_transfer;   /**< Matter transfer functions.

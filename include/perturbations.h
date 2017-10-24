@@ -310,7 +310,7 @@ struct perturbs
   int index_tp_B_nm;      /**< index value for derivative of spatial gauge displacement L */
   int index_tp_CHT_grow;
   int index_tp_CHT_decay;
-
+  int index_tp_gamma_Nb;
 
   int * tp_size; /**< number of types tp_size[index_md] included in computation for each mode */
 
@@ -521,6 +521,7 @@ struct perturb_workspace
   double HCtheta_p_prime;
   double HCA_nb_prime;
   double PhiExtra;
+  double gamma_Nb;
 
   double tca_shear_g; /**< photon shear in tight-coupling approximation */
   double tca_slip;    /**< photon-baryon slip in tight-coupling approximation */
