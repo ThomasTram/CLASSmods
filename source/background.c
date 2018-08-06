@@ -1050,6 +1050,52 @@ int background_ncdm_distribution(
         account by introducing the mixing angles. In the later part
         (not read by the code) we illustrate how to do this. */
 
+    /** Add greybody distribution.*/
+    /* check that this list has been read */
+    class_test(param == NULL,
+	       pba->error_message,
+	       "Analytic expression wants to use 'ncdm_psd_parameters', but they have not been entered!");
+      /* extract values from the list (alpha and x) */
+    int psd_select = param[0];
+    double GB_alpha, GB_x, GB_q0;
+    double FDp_A, FDp_q0, FDp_sigma;
+    double BEp_A, BEp_q0, BEp_sigma;
+    switch (psd_select) {
+    case 0:
+      // Grey body
+      GB_alpha=param[1];
+      GB_x=param[2];
+      GB_q0 = param[3];
+      *f0 = 2.0/pow(2*_PI_,3)*pow(q/GB_q0,GB_alpha-1.)*(1./(exp(q*GB_alpha*GB_x)+1.));
+      break;
+    case 1:
+      //Fermi-Dirac
+      *f0 = 2.0/pow(2*_PI_,3)*(1./(exp(q)+1.));
+      break;
+    case 2:
+      //Bose-Einstein
+      *f0 = 2.0/pow(2*_PI_,3)*(1./(exp(q)-1.));
+      break;
+    case 3:
+      //FD with peak
+      FDp_A=param[1];
+      FDp_q0=param[2];
+      FDp_sigma=param[3];
+      *f0 = 2.0/pow(2*_PI_,3)*(1./(exp(q)+1.) +
+			       FDp_A*_PI_*_PI_/(q*q*sqrt(2*_PI_)*FDp_sigma)*exp(-0.5*pow((q-FDp_q0)/FDp_sigma,2)));
+      break;
+    case 4:
+      //BE with peak
+      BEp_A=param[1];
+      BEp_q0=param[2];
+      BEp_sigma=param[3];
+      *f0 = 2.0/pow(2*_PI_,3)*(1./(exp(q)-1.) +
+			       BEp_A*_PI_*_PI_/(q*q*sqrt(2*_PI_)*BEp_sigma)*exp(-0.5*pow((q-BEp_q0)/BEp_sigma,2)));
+      break;
+    default:
+      class_stop(pba->error_message,
+		 "Scenario (distribution function) not coded!");
+    }
     if (_FALSE_) {
 
       /* We must use the list of extra parameters read in input, stored in the
@@ -2335,4 +2381,109 @@ double ddV_scf(
                struct background *pba,
                double phi) {
   return ddV_e_scf(pba,phi)*V_p_scf(pba,phi) + 2*dV_e_scf(pba,phi)*dV_p_scf(pba,phi) + V_e_scf(pba,phi)*ddV_p_scf(pba,phi);
+}
+
+
+double find_alpha(double rM){
+  double alpha1, alpha2, alpham, Q1, Q2, Qm;
+  double safetyfac=1.1;
+  
+  if (rM<1.0){
+    printf("Error! rm=%g<1!",rM);
+  }
+  
+  alpha1 = alpha_guess(rM);
+  Q1 = rhs_alpha_fun(alpha1);
+
+  Q2 = Q1;
+  alpha2 = alpha1;
+  
+  while ((Q1-rM)*(Q2-rM)>0) {
+    alpha1 = alpha2;
+    Q1 = Q2;
+    alpha2 += safetyfac*(rM-Q1)/dQ_dalpha_approx(alpha1);
+    Q2 = rhs_alpha_fun(alpha2);
+    safetyfac *=2;
+    //printf("a1 = %.4e, a2 = %.4e, Q1-rM = %g.4, Q2-rM = %.4e\n",alpha1,alpha2,Q1-rM,Q2-rM);
+  }
+
+  int iter=0, itermax=100;
+  
+  while (fabs(1.-rM/Q2)>1e-12){
+    iter++;
+    if (iter>itermax)
+      break;
+    //printf("%.16e\n",fabs(1.-rM/Q2));
+    alpham = 0.5*(alpha1+alpha2);
+    Qm = rhs_alpha_fun(alpham);
+    //printf("a1 = %.4e, a2 = %.4e, am = %.4e, Q1-rM = %.4e, Q2-rM = %.4e, Qm-rM = %.4e\n",alpha1,alpha2,alpham,Q1-rM,Q2-rM,Qm-rM);
+    if ((Q1-rM)*(Qm-rM)>0){
+      alpha1 = alpham;
+      Q1 = Qm;
+    }
+    else{
+      alpha2 = alpham;
+      Q2 = Qm;
+    }
+  }
+  
+  return alpha2;
+}
+
+double rhs_alpha_fun(double alpha){
+  return ((1 - 5*pow(2,1 + alpha) + pow(4,2 + alpha))*(3 + alpha)*zeta(2 + alpha)*zeta(4 + alpha))/
+    (pow(-1 + pow(2,2 + alpha),2)*(2 + alpha)*pow(zeta(3 + alpha),2));
+}
+
+double alpha_guess(double rM){
+  //  double Q0 = 7*pow(M_PI,6)/(3240*pow(zeta(3),2));
+  double Q0 = 1.4374813282799349765;
+  return 2*(Q0-rM)/(rM-1.);
+}
+
+double dQ_dalpha_approx(double alpha){
+  //  double Q0 = 7*pow(M_PI,6)/(3240*pow(zeta(3),2));
+  double Q0 = 1.4374813282799349765;
+  return -2*(Q0-1.)/pow(2+alpha,2);
+}
+
+double zeta(double s){
+
+  int n;
+  double S1=0, S2=0;
+  double * efunarray;
+  int k, j;
+  double bnj, res;
+
+  if (s>0.)
+    n = 21-s;
+  else
+    n = 21;
+  if (n<6)
+    n=6;
+
+  efunarray = malloc(sizeof(double)*(n+1));
+  bnj = 1.0;
+  efunarray[n] = bnj;
+  for (j=n-1; j>=0; j--){
+    bnj *= (j+1.)/(n-j);
+    efunarray[j] = efunarray[j+1]+bnj;
+  }
+
+  for (k=1; k<=n; k++){
+    if ((k-1)%2==0)
+      S1 += 1./pow(k,s);
+    else
+      S1 -= 1./pow(k,s);
+  }
+
+  for (k=n+1; k<=2*n; k++){
+    if ((k-1)%2==0)
+      S2 += efunarray[k-n]/pow(k,s);
+    else
+      S2 -= efunarray[k-n]/pow(k,s);
+  }
+
+  free(efunarray);	 
+  return (S1+S2/pow(2,n))/(1.-pow(2,1-s));
 }

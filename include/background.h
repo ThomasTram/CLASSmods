@@ -506,6 +506,12 @@ extern "C" {
                double phi_prime
                );
 
+  double zeta(double s);
+  double find_alpha(double rM);
+  double rhs_alpha_fun(double alpha);
+  double alpha_guess(double rM);
+  double dQ_dalpha_approx(double alpha);
+
 #ifdef __cplusplus
 }
 #endif

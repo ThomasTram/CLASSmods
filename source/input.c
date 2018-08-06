@@ -884,7 +884,34 @@ int input_read_parameters(
                                 &(pba->ncdm_psd_parameters),
                                 &flag2,
                                 errmsg);
-
+    printf("entries read: %d, flag2=%d, %g, %g, %g, %g\n",entries_read,flag2,pba->ncdm_psd_parameters[0],
+	   pba->ncdm_psd_parameters[1],pba->ncdm_psd_parameters[2],pba->ncdm_psd_parameters[3]);
+    if ((flag2==_TRUE_) && (entries_read >=4) && (pba->ncdm_psd_parameters[0]<0.)){
+      if (input_verbose>0)
+	printf("Reconstructing Grey-body distribution from moments...\n");
+      /** Use greybody psd */
+      double M2 = pba->ncdm_psd_parameters[1];
+      double M3 = pba->ncdm_psd_parameters[2];
+      double rM = M2*pba->ncdm_psd_parameters[3]/M3/M3;
+      class_test(rM<=1.,errmsg,"rM=M1*M4/M3^2=%.16e which cannot be matched by a Greybody distribution\n",rM); 
+      pba->ncdm_psd_parameters[0] = 0;
+      double GB_alpha = find_alpha(rM);
+      pba->ncdm_psd_parameters[1] = GB_alpha;
+      double A2 = pow(2,GB_alpha+1.0);
+      double GB_x = (2*A2-1)*M2*zeta(GB_alpha+3.)*tgamma(GB_alpha+3.)/
+	(2*(A2-1)*GB_alpha*M3*zeta(GB_alpha+2.)*tgamma(GB_alpha+2.));
+      pba->ncdm_psd_parameters[2] = GB_x;
+      double GB_q0 = pow((1-1./A2)*zeta(GB_alpha+2)*tgamma(GB_alpha+2.)/
+			 (M2*pow(GB_alpha*GB_x,GB_alpha+2.)),1./(GB_alpha-1.));
+      pba->ncdm_psd_parameters[3] = GB_q0;
+      if (input_verbose>0){
+	printf("Greybody parameters:\n");
+      	printf("--> alpha = %.16e\n",GB_alpha);
+      	printf("-->     x = %.16e\n",GB_x);
+      	printf("-->    q0 = %.16e\n",GB_q0);
+      }
+    }
+    
     class_call(background_ncdm_init(ppr,pba),
                pba->error_message,
                errmsg);
