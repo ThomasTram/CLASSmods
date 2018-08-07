@@ -892,7 +892,7 @@ int input_read_parameters(
       /** Use greybody psd */
       double M2 = pba->ncdm_psd_parameters[1];
       double M3 = pba->ncdm_psd_parameters[2];
-      double rM = M2*pba->ncdm_psd_parameters[3]/M3/M3;
+      double rM = pba->ncdm_psd_parameters[3];
       class_test(rM<=1.,errmsg,"rM=M1*M4/M3^2=%.16e which cannot be matched by a Greybody distribution\n",rM); 
       pba->ncdm_psd_parameters[0] = 0;
       double GB_alpha = find_alpha(rM);
