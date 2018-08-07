@@ -884,8 +884,8 @@ int input_read_parameters(
                                 &(pba->ncdm_psd_parameters),
                                 &flag2,
                                 errmsg);
-    printf("entries read: %d, flag2=%d, %g, %g, %g, %g\n",entries_read,flag2,pba->ncdm_psd_parameters[0],
-	   pba->ncdm_psd_parameters[1],pba->ncdm_psd_parameters[2],pba->ncdm_psd_parameters[3]);
+    /** printf("entries read: %d, flag2=%d, %g, %g, %g, %g\n",entries_read,flag2,pba->ncdm_psd_parameters[0],
+	pba->ncdm_psd_parameters[1],pba->ncdm_psd_parameters[2],pba->ncdm_psd_parameters[3]); */
     if ((flag2==_TRUE_) && (entries_read >=4) && (pba->ncdm_psd_parameters[0]<0.)){
       if (input_verbose>0)
 	printf("Reconstructing Grey-body distribution from moments...\n");
