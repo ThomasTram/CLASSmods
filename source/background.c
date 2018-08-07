@@ -1316,8 +1316,8 @@ int background_ncdm_init(
 		 pba->error_message,
 		 pba->error_message);
       for (index_q=0; index_q<pba->q_size_ncdm[k]; index_q++) {
-	pba->q_ncdm_bg[k] = pba->q_ncdm[k];
-	pba->w_ncdm_bg[k] = pba->w_ncdm[k];
+	pba->q_ncdm_bg[k][index_q] = pba->q_ncdm[k][index_q];
+	pba->w_ncdm_bg[k][index_q] = pba->w_ncdm[k][index_q];
       }
     /** - in verbose mode, inform user of number of sampled momenta
         for background quantities */
@@ -2486,4 +2486,28 @@ double zeta(double s){
 
   free(efunarray);	 
   return (S1+S2/pow(2,n))/(1.-pow(2,1-s));
+}
+
+int background_ncdm_pure_moments(struct background * pba,
+				 int n_ncdm,
+				 int n,
+				 double *IM){
+  
+  double * qvec;
+  double * wvec;
+  int qsize;
+  int index_q;
+
+  qvec = pba->q_ncdm_bg[n_ncdm];
+  wvec = pba->w_ncdm_bg[n_ncdm];
+  qsize = pba->q_size_ncdm_bg[n_ncdm];
+  
+  *IM = 0.;
+  /** - loop over momenta */
+  for (index_q=0; index_q<qsize; index_q++)
+    *IM += pow(qvec[index_q],n)*wvec[index_q];
+
+  /** Normalise moment */
+  *IM *= 0.5*pow(2*_PI_,3);
+  return _SUCCESS_;
 }

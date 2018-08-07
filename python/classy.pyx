@@ -1351,6 +1351,7 @@ cdef class Class:
         if type(names) != type([]):
             raise TypeError("Deprecated")
 
+        cdef double tmp
         derived = {}
         for name in names:
             if name == 'h':
@@ -1503,6 +1504,26 @@ cdef class Class:
                 value = self.sp.alpha_RR_2_2500
             elif name == 'sigma8':
                 value = self.sp.sigma8
+            elif name == 'M2':
+                background_ncdm_pure_moments(&self.ba, 0, 2, &tmp)
+                value = tmp
+            elif name == 'M3':
+                background_ncdm_pure_moments(&self.ba, 0, 3, &tmp)
+                value = tmp
+            elif name == 'M4':
+                background_ncdm_pure_moments(&self.ba, 0, 4, &tmp)
+                value = tmp
+            elif name == 'rM':
+                background_ncdm_pure_moments(&self.ba, 0, 2, &tmp)
+                value = tmp
+                background_ncdm_pure_moments(&self.ba, 0, 4, &tmp)
+                value *=tmp
+                background_ncdm_pure_moments(&self.ba, 0, 3, &tmp)
+                value *=tmp**(-2)
+            elif name == 'Omega_ncdm':
+                value = self.ba.Omega0_ncdm_tot
+            elif name == 'omega_ncdm':
+                value = self.ba.Omega0_ncdm_tot/self.ba.h**2
             else:
                 raise CosmoSevereError("%s was not recognized as a derived parameter" % name)
             derived[name] = value

@@ -511,6 +511,10 @@ extern "C" {
   double rhs_alpha_fun(double alpha);
   double alpha_guess(double rM);
   double dQ_dalpha_approx(double alpha);
+  int background_ncdm_pure_moments(struct background * pba,
+				 int n_ncdm,
+				 int n,
+				   double *IM);
 
 #ifdef __cplusplus
 }

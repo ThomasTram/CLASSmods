@@ -278,6 +278,7 @@ cdef extern from "class.h":
     int background_at_tau(void* pba, double tau, short return_format, short inter_mode, int * last_index, double *pvecback)
     int background_output_titles(void * pba, char titles[_MAXTITLESTRINGLENGTH_])
     int background_output_data(void *pba, int number_of_titles, double *data)
+    int background_ncdm_pure_moments(void * pba, int n_ncdm, int n, double *IM)
 
     int thermodynamics_at_z(void * pba, void * pth, double z, short inter_mode, int * last_index, double *pvecback, double *pvecthermo)
     int thermodynamics_output_titles(void * pba, void *pth, char titles[_MAXTITLESTRINGLENGTH_])
