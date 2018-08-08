@@ -2508,6 +2508,6 @@ int background_ncdm_pure_moments(struct background * pba,
     *IM += pow(qvec[index_q],n)*wvec[index_q];
 
   /** Normalise moment */
-  *IM *= 0.5*pow(2*_PI_,3);
+  *IM *= pba->deg_ncdm[n_ncdm]*0.5*pow(2*_PI_,3);
   return _SUCCESS_;
 }
