@@ -669,6 +669,9 @@ int background_init(
   default :
     printf("No method selected!\n");
   }
+  int ii;
+  for (ii=0; ii<pba->bt_size; ii++)
+    fprintf(stderr, "%.2e ",pba->z_table[ii]);
   return _SUCCESS_;
 
 }
@@ -1833,6 +1836,7 @@ int background_solve_new(
   int (*generic_evolver)();
   double *loga, loga_ini, loga_final;
   int * used_in_output;
+  double * bg_table_row;
   bpaw.pba = pba;
   class_alloc(pvecback,pba->bg_size*sizeof(double),pba->error_message);
   bpaw.pvecback = pvecback;
@@ -1851,11 +1855,9 @@ int background_solve_new(
              pba->error_message,
              pba->error_message);
 
-  /** - Remeber that we evolve tau at index_bi_a: */
-  pvecback_integration[pba->index_bi_a] =  pvecback_integration[pba->index_bi_tau];
-  
-  /** - Determine output vector */
+    /** - Determine output vector */
   loga_ini = log(pvecback_integration[pba->index_bi_a]);
+  printf("%g %g\n",loga_ini, exp(loga_ini));
   loga_final = log(pba->a_today);
   pba->bt_size = (loga_final-loga_ini)/ppr->back_integration_stepsize;
   class_alloc(loga, pba->bt_size*sizeof(double), pba->error_message); 
@@ -1864,6 +1866,10 @@ int background_solve_new(
     loga[index_loga] = loga_ini + index_loga*(loga_final-loga_ini)/(pba->bt_size-1);
     used_in_output[index_loga] = 1;
   }
+
+  /** - Remeber that we evolve tau at index_bi_a: */
+  pvecback_integration[pba->index_bi_a] =  pvecback_integration[pba->index_bi_tau];
+  
 
   /** - allocate background tables */
   class_alloc(pba->tau_table,pba->bt_size * sizeof(double),pba->error_message);
@@ -1891,7 +1897,7 @@ int background_solve_new(
 			     pvecback_integration,
 			     used_in_output,
 			     pba->bi_size-1,
-			     pba,
+			     &bpaw,
 			     1e-6,
 			     ppr->smallest_allowed_variation,
 			     NULL,
@@ -1922,35 +1928,35 @@ int background_solve_new(
   /** Recover some quantities today */
   D_today = pvecback_integration[pba->index_bi_D];
   for (i=0; i < pba->bt_size; i++) {
-    pvecback = pba->background_table + i*pba->bg_size;
+    bg_table_row = pba->background_table + i*pba->bg_size;
     /** Recover integration vector at this time */
     for (index_bi=0; index_bi<0; index_bi++)
-      pvecback_integration[index_bi] = pba->background_table[index_bi*(pba->bg_size-1)+index_bi];
+      pvecback_integration[index_bi] = bg_table_row[index_bi];
     /** pvecback is the row in the background table, pvecback_integration holds the contents of the integrated vector
 	at the current time */
 
     /* -> establish correspondence between the integrated variable and the bg variables */
-    pvecback[pba->index_bg_time] = pvecback_integration[pba->index_bi_time];
-    pvecback[pba->index_bg_conf_distance] = pba->conformal_age - pvecback_integration[pba->index_bi_tau];
+    bg_table_row[pba->index_bg_time] = pvecback_integration[pba->index_bi_time];
+    bg_table_row[pba->index_bg_conf_distance] = pba->conformal_age - pba->tau_table[i];
 
-    if (pba->sgnK == 0) comoving_radius = pvecback[pba->index_bg_conf_distance];
-    else if (pba->sgnK == 1) comoving_radius = sin(sqrt(pba->K)*pvecback[pba->index_bg_conf_distance])/sqrt(pba->K);
-    else if (pba->sgnK == -1) comoving_radius = sinh(sqrt(-pba->K)*pvecback[pba->index_bg_conf_distance])/sqrt(-pba->K);
+    if (pba->sgnK == 0) comoving_radius = bg_table_row[pba->index_bg_conf_distance];
+    else if (pba->sgnK == 1) comoving_radius = sin(sqrt(pba->K)*bg_table_row[pba->index_bg_conf_distance])/sqrt(pba->K);
+    else if (pba->sgnK == -1) comoving_radius = sinh(sqrt(-pba->K)*bg_table_row[pba->index_bg_conf_distance])/sqrt(-pba->K);
 
-    pvecback[pba->index_bg_ang_distance] = pba->a_today*comoving_radius/(1.+pba->z_table[i]);
-    pvecback[pba->index_bg_lum_distance] = pba->a_today*comoving_radius*(1.+pba->z_table[i]);
-    pvecback[pba->index_bg_rs] = pvecback_integration[pba->index_bi_rs];
+    bg_table_row[pba->index_bg_ang_distance] = pba->a_today*comoving_radius/(1.+pba->z_table[i]);
+    bg_table_row[pba->index_bg_lum_distance] = pba->a_today*comoving_radius*(1.+pba->z_table[i]);
+    bg_table_row[pba->index_bg_rs] = pvecback_integration[pba->index_bi_rs];
 
     /* -> compute all other quantities depending only on {B} variables.
        The value of {B} variables in pData are also copied to pvecback.*/
-    class_call(background_functions(pba,pvecback_integration, pba->long_info, pvecback),
+    class_call(background_functions(pba,pvecback_integration, pba->long_info, bg_table_row),
                pba->error_message,
                pba->error_message);
 
     /* Normalise D(z=0)=1 and construct f = D_prime/(aHD) */
-    pvecback[pba->index_bg_D] = pvecback_integration[pba->index_bi_D]/D_today;
-    pvecback[pba->index_bg_f] = pvecback_integration[pba->index_bi_D_prime]/
-      (D_today*pvecback[pba->index_bg_a]*pvecback[pba->index_bg_H]);
+    bg_table_row[pba->index_bg_D] = pvecback_integration[pba->index_bi_D]/D_today;
+    bg_table_row[pba->index_bg_f] = pvecback_integration[pba->index_bi_D_prime]/
+      (D_today*bg_table_row[pba->index_bg_a]*bg_table_row[pba->index_bg_H]);
   }
 
   /** - fill tables of second derivatives (in view of spline interpolation) */
@@ -2529,12 +2535,17 @@ int background_add_line_to_bg_table(
   int index_bi;
 
   pba->z_table[index_loga] = MAX(0.,pba->a_today/exp(loga)-1.);
+  //printf("%.2e\n",pba->z_table[index_loga]);
   pba->tau_table[index_loga] = y[pba->index_bi_a]; /* Tau at a's spot..*/
   
   /* -> write in the table. We are only storing {A} quantities */
   for (index_bi=0; index_bi < (pba->bi_size-1); index_bi++)
     pba->background_table[index_loga*pba->bg_size+index_bi] = y[index_bi];
     
+  /* tau is evolved at a's spot...*/
+  pba->background_table[index_loga*pba->bg_size+pba->index_bi_tau] = y[pba->index_bi_a];
+  pba->background_table[index_loga*pba->bg_size+pba->index_bi_a] = pba->a_today*1./(1.+pba->z_table[index_loga] );
+  
   return _SUCCESS_;
 }
 
