@@ -2502,6 +2502,7 @@ int input_read_parameters(
   class_read_double("tol_initial_Omega_r",ppr->tol_initial_Omega_r);
   class_read_double("tol_ncdm_initial_w",ppr->tol_ncdm_initial_w);
   class_read_double("safe_phi_scf",ppr->safe_phi_scf);
+  class_read_int("background_method",ppr->background_method);
 
   /** - (h.2.) parameters related to the thermodynamics */
 
@@ -3171,6 +3172,7 @@ int input_default_precision ( struct precision * ppr ) {
    * - parameters related to the background
    */
 
+  ppr->background_method = bgevo_old;
   ppr->a_ini_over_a_today_default = 1.e-14;
   ppr->back_integration_stepsize = 7.e-3;
   ppr->tol_background_integration = 1.e-2;

@@ -650,12 +650,25 @@ int background_init(
              pba->error_message,
              "_Gyr_over_Mpc = %e instead of strictly positive",_Gyr_over_Mpc_);
 
-  /** - this function integrates the background over time, allocates
-      and fills the background table */
-  class_call(background_solve(ppr,pba),
-             pba->error_message,
-             pba->error_message);
 
+  switch (ppr->background_method){
+  case (bgevo_old) :
+    /** - this function integrates the background over time, allocates
+	and fills the background table */
+    class_call(background_solve(ppr,pba),
+	       pba->error_message,
+	       pba->error_message);
+    break;
+  case (bgevo_new) :
+    /** - this function integrates the background over time, allocates
+	and fills the background table in a more modern way*/
+    class_call(background_solve_new(ppr,pba),
+	       pba->error_message,
+	       pba->error_message);
+    break;
+  default :
+    printf("No method selected!\n");
+  }
   return _SUCCESS_;
 
 }
@@ -1792,6 +1805,226 @@ int background_solve(
 
 }
 
+
+int background_solve_new(
+                     struct precision *ppr,
+                     struct background *pba
+                     ) {
+
+  /** Summary: */
+
+  /** - define local variables */
+
+  /* contains all quantities relevant for the integration algorithm */
+  struct generic_integrator_workspace gi;
+  /* parameters and workspace for the background_derivs function */
+  struct background_parameters_and_workspace bpaw;
+  /* vector of quantities to be integrated */
+  double * pvecback_integration;
+  /* vector of all background quantities */
+  double * pvecback;
+  /* necessary for calling array_interpolate(), but never used */
+  int last_index=0;
+  /* comoving radius coordinate in Mpc (equal to conformal distance in flat case) */
+  double comoving_radius=0.;
+
+  extern int evolver_rk();
+  extern int evolver_ndf15();
+  int (*generic_evolver)();
+  double *loga, loga_ini, loga_final;
+  int * used_in_output;
+  bpaw.pba = pba;
+  class_alloc(pvecback,pba->bg_size*sizeof(double),pba->error_message);
+  bpaw.pvecback = pvecback;
+  double D_today;
+  int index_bi, index_loga, i;
+
+  /** - allocate vector of quantities to be integrated */
+  class_alloc(pvecback_integration,pba->bi_size*sizeof(double),pba->error_message);
+  
+  /* Size of vector to integrate is (pba->bi_size-1) rather than
+   * (pba->bi_size), since a is not integrated.
+   */
+
+  /** - impose initial conditions with background_initial_conditions() */
+  class_call(background_initial_conditions(ppr,pba,pvecback,pvecback_integration),
+             pba->error_message,
+             pba->error_message);
+
+  /** - Remeber that we evolve tau at index_bi_a: */
+  pvecback_integration[pba->index_bi_a] =  pvecback_integration[pba->index_bi_tau];
+  
+  /** - Determine output vector */
+  loga_ini = log(pvecback_integration[pba->index_bi_a]);
+  loga_final = log(pba->a_today);
+  pba->bt_size = (loga_final-loga_ini)/ppr->back_integration_stepsize;
+  class_alloc(loga, pba->bt_size*sizeof(double), pba->error_message); 
+  class_alloc(used_in_output, pba->bt_size*sizeof(int), pba->error_message); 
+  for (index_loga=0; index_loga<pba->bt_size; index_loga++){
+    loga[index_loga] = loga_ini + index_loga*(loga_final-loga_ini)/(pba->bt_size-1);
+    used_in_output[index_loga] = 1;
+  }
+
+  /** - allocate background tables */
+  class_alloc(pba->tau_table,pba->bt_size * sizeof(double),pba->error_message);
+
+  class_alloc(pba->z_table,pba->bt_size * sizeof(double),pba->error_message);
+
+  class_alloc(pba->d2tau_dz2_table,pba->bt_size * sizeof(double),pba->error_message);
+
+  class_alloc(pba->background_table,pba->bt_size * pba->bg_size * sizeof(double),pba->error_message);
+
+  class_alloc(pba->d2background_dtau2_table,pba->bt_size * pba->bg_size * sizeof(double),pba->error_message);
+
+  
+
+  if(ppr->evolver == rk){
+    generic_evolver = evolver_rk;
+  }
+  else{
+    generic_evolver = evolver_ndf15;
+  }
+  
+  class_call(generic_evolver(background_derivs_loga,
+			     loga_ini,
+			     loga_final,
+			     pvecback_integration,
+			     used_in_output,
+			     pba->bi_size-1,
+			     pba,
+			     1e-6,
+			     ppr->smallest_allowed_variation,
+			     NULL,
+			     ppr->perturb_integration_stepsize,
+			     loga,
+			     pba->bt_size,
+			     background_add_line_to_bg_table,
+			     NULL,
+			     pba->error_message),
+	     pba->error_message,
+	     pba->error_message);
+  
+  
+  /** - deduce age of the Universe */
+  /* -> age in Gyears */
+  pba->age = pvecback_integration[pba->index_bi_time]/_Gyr_over_Mpc_;
+  /* -> conformal age in Mpc. Remeber that tau is stored at index_bi_a now */
+  pba->conformal_age = pvecback_integration[pba->index_bi_a];
+  /* -> contribution of decaying dark matter and dark radiation to the critical density today: */
+  if (pba->has_dcdm == _TRUE_){
+    pba->Omega0_dcdm = pvecback_integration[pba->index_bi_rho_dcdm]/pba->H0/pba->H0;
+  }
+  if (pba->has_dr == _TRUE_){
+    pba->Omega0_dr = pvecback_integration[pba->index_bi_rho_dr]/pba->H0/pba->H0;
+  }
+
+  /** - In a loop over lines, fill rest of background table using the result of the integration plus background_functions() */
+  /** Recover some quantities today */
+  D_today = pvecback_integration[pba->index_bi_D];
+  for (i=0; i < pba->bt_size; i++) {
+    pvecback = pba->background_table + i*pba->bg_size;
+    /** Recover integration vector at this time */
+    for (index_bi=0; index_bi<0; index_bi++)
+      pvecback_integration[index_bi] = pba->background_table[index_bi*(pba->bg_size-1)+index_bi];
+    /** pvecback is the row in the background table, pvecback_integration holds the contents of the integrated vector
+	at the current time */
+
+    /* -> establish correspondence between the integrated variable and the bg variables */
+    pvecback[pba->index_bg_time] = pvecback_integration[pba->index_bi_time];
+    pvecback[pba->index_bg_conf_distance] = pba->conformal_age - pvecback_integration[pba->index_bi_tau];
+
+    if (pba->sgnK == 0) comoving_radius = pvecback[pba->index_bg_conf_distance];
+    else if (pba->sgnK == 1) comoving_radius = sin(sqrt(pba->K)*pvecback[pba->index_bg_conf_distance])/sqrt(pba->K);
+    else if (pba->sgnK == -1) comoving_radius = sinh(sqrt(-pba->K)*pvecback[pba->index_bg_conf_distance])/sqrt(-pba->K);
+
+    pvecback[pba->index_bg_ang_distance] = pba->a_today*comoving_radius/(1.+pba->z_table[i]);
+    pvecback[pba->index_bg_lum_distance] = pba->a_today*comoving_radius*(1.+pba->z_table[i]);
+    pvecback[pba->index_bg_rs] = pvecback_integration[pba->index_bi_rs];
+
+    /* -> compute all other quantities depending only on {B} variables.
+       The value of {B} variables in pData are also copied to pvecback.*/
+    class_call(background_functions(pba,pvecback_integration, pba->long_info, pvecback),
+               pba->error_message,
+               pba->error_message);
+
+    /* Normalise D(z=0)=1 and construct f = D_prime/(aHD) */
+    pvecback[pba->index_bg_D] = pvecback_integration[pba->index_bi_D]/D_today;
+    pvecback[pba->index_bg_f] = pvecback_integration[pba->index_bi_D_prime]/
+      (D_today*pvecback[pba->index_bg_a]*pvecback[pba->index_bg_H]);
+  }
+
+  /** - fill tables of second derivatives (in view of spline interpolation) */
+  class_call(array_spline_table_lines(pba->z_table,
+                                      pba->bt_size,
+                                      pba->tau_table,
+                                      1,
+                                      pba->d2tau_dz2_table,
+                                      _SPLINE_EST_DERIV_,
+                                      pba->error_message),
+             pba->error_message,
+             pba->error_message);
+
+  class_call(array_spline_table_lines(pba->tau_table,
+                                      pba->bt_size,
+                                      pba->background_table,
+                                      pba->bg_size,
+                                      pba->d2background_dtau2_table,
+                                      _SPLINE_EST_DERIV_,
+                                      pba->error_message),
+             pba->error_message,
+             pba->error_message);
+
+  /** - compute remaining "related parameters"
+   *     - so-called "effective neutrino number", computed at earliest
+      time in interpolation table. This should be seen as a
+      definition: Neff is the equivalent number of
+      instantaneously-decoupled neutrinos accounting for the
+      radiation density, beyond photons */
+  pba->Neff = (pba->background_table[pba->index_bg_Omega_r]
+               *pba->background_table[pba->index_bg_rho_crit]
+               -pba->background_table[pba->index_bg_rho_g])
+    /(7./8.*pow(4./11.,4./3.)*pba->background_table[pba->index_bg_rho_g]);
+
+  /** - done */
+  if (pba->background_verbose > 0) {
+    printf(" -> age = %f Gyr\n",pba->age);
+    printf(" -> conformal age = %f Mpc\n",pba->conformal_age);
+  }
+
+  if (pba->background_verbose > 2) {
+    if ((pba->has_dcdm == _TRUE_)&&(pba->has_dr == _TRUE_)){
+      printf("    Decaying Cold Dark Matter details: (DCDM --> DR)\n");
+      printf("     -> Omega0_dcdm = %f\n",pba->Omega0_dcdm);
+      printf("     -> Omega0_dr = %f\n",pba->Omega0_dr);
+      printf("     -> Omega0_dr+Omega0_dcdm = %f, input value = %f\n",
+             pba->Omega0_dr+pba->Omega0_dcdm,pba->Omega0_dcdmdr);
+      printf("     -> Omega_ini_dcdm/Omega_b = %f\n",pba->Omega_ini_dcdm/pba->Omega0_b);
+    }
+    if (pba->has_scf == _TRUE_){
+      printf("    Scalar field details:\n");
+      printf("     -> Omega_scf = %g, wished %g\n",
+             pvecback[pba->index_bg_rho_scf]/pvecback[pba->index_bg_rho_crit], pba->Omega0_scf);
+      if(pba->has_lambda == _TRUE_)
+	printf("     -> Omega_Lambda = %g, wished %g\n",
+               pvecback[pba->index_bg_rho_lambda]/pvecback[pba->index_bg_rho_crit], pba->Omega0_lambda);
+      printf("     -> parameters: [lambda, alpha, A, B] = \n");
+      printf("                    [");
+      for (i=0; i<pba->scf_parameters_size-1; i++){
+        printf("%.3f, ",pba->scf_parameters[i]);
+      }
+      printf("%.3f]\n",pba->scf_parameters[pba->scf_parameters_size-1]);
+    }
+  }
+
+  free(loga);
+  free(used_in_output);
+  free(pvecback);
+  free(pvecback_integration);
+
+  return _SUCCESS_;
+
+}
+
 /**
  * Assign initial values to background integrated variables.
  *
@@ -2210,6 +2443,99 @@ int background_derivs(
 
   return _SUCCESS_;
 
+}
+
+/**
+ * Subroutine evaluating the derivative with respect to log(a)
+ * of quantities which are integrated (tau, t, etc).
+ *
+ * This is one of the few functions in the code which is passed to
+ * the generic_integrator() routine.  Since generic_integrator()
+ * should work with functions passed from various modules, the format
+ * of the arguments is a bit special:
+ *
+ * - fixed input parameters and workspaces are passed through a generic
+ * pointer. Here, this is just a pointer to the background structure
+ * and to a background vector, but generic_integrator() doesn't know
+ * its fine structure.
+ *
+ * - the error management is a bit special: errors are not written as
+ * usual to pba->error_message, but to a generic error_message passed
+ * in the list of arguments.
+ *
+ * @param a                        Input: scale factor
+ * @param y                        Input: vector of variable
+ * @param dy                       Output: its derivative (already allocated)
+ * @param parameters_and_workspace Input: pointer to fixed parameters (e.g. indices)
+ * @param error_message            Output: error message
+ */
+int background_derivs_loga(
+                      double loga,
+                      double* y, /* vector with argument y[index_bi] (must be already allocated with size pba->bi_size) */
+                      double* dy, /* vector with argument dy[index_bi]
+                                     (must be already allocated with
+                                     size pba->bi_size) */
+                      void * parameters_and_workspace,
+                      ErrorMsg error_message
+                      ) {
+
+  double a,tau;
+  struct background_parameters_and_workspace * pbpaw;
+  struct background * pba;
+  double * pvecback, H, rho_M;
+  int index_bi;
+
+  pbpaw = parameters_and_workspace;
+  pba =  pbpaw->pba;
+  pvecback = pbpaw->pvecback;
+  
+  /** Note that we want to reuse as much as possible of the usual tau
+      integration, so inside y, index_bi_a is really the index of tau. */
+  a = exp(loga);
+  tau = y[pba->index_bi_a];
+  y[pba->index_bi_a] = a;
+  //y[pba->index_bi_tau] = tau;
+
+  /** Get derivatives w.r.t. conformal time */
+  class_call(background_derivs(tau, y, dy, parameters_and_workspace, error_message),
+	     pba->error_message,
+	     error_message);
+
+  /** Swap a and tau again */
+  y[pba->index_bi_a] = tau;
+  /** Set dtau/dloga: */
+  dy[pba->index_bi_a] = 1.0;
+  
+  /** Convert to scale factor derivatives */
+  H = pvecback[pba->index_bg_H];
+  for (index_bi=0; index_bi<(pba->bi_size-1); index_bi++)
+    dy[index_bi] *= 1./(a*H);
+  return _SUCCESS_;
+}
+
+int background_add_line_to_bg_table(
+                    double loga,
+                    double * y,
+                    double * dy,
+                    int index_loga,
+                    void * parameters_and_workspace,
+                    ErrorMsg error_message
+                    ) {
+
+  struct background_parameters_and_workspace * pbpaw;
+  struct background * pba;
+  pbpaw = parameters_and_workspace;
+  pba =  pbpaw->pba;
+  int index_bi;
+
+  pba->z_table[index_loga] = MAX(0.,pba->a_today/exp(loga)-1.);
+  pba->tau_table[index_loga] = y[pba->index_bi_a]; /* Tau at a's spot..*/
+  
+  /* -> write in the table. We are only storing {A} quantities */
+  for (index_bi=0; index_bi < (pba->bi_size-1); index_bi++)
+    pba->background_table[index_loga*pba->bg_size+index_bi] = y[index_bi];
+    
+  return _SUCCESS_;
 }
 
 /**

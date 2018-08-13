@@ -337,6 +337,12 @@ enum pk_def {
 enum file_format {class_format,camb_format};
 
 /**
+ * Different ways to integrate background
+ */
+
+enum background_evolution_method {bgevo_old,bgevo_new};
+
+/**
  * All precision parameters.
  *
  * Includes integrations
@@ -416,6 +422,10 @@ struct precision
    */
   double safe_phi_scf;
 
+  /**
+   * parameter choosing how to evolve background
+   */
+  enum background_evolution_method background_method;
   //@}
 
   /** @name - parameters related to the thermodynamics */

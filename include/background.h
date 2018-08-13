@@ -361,6 +361,7 @@ struct background_parameters_for_distributions {
 
 };
 
+
 /**************************************************************/
 /* @cond INCLUDE_WITH_DOXYGEN */
 /*
@@ -459,6 +460,11 @@ extern "C" {
 		       struct background *pba
 		       );
 
+  int background_solve_new(
+		       struct precision *ppr,
+		       struct background *pba
+		       );
+
   int background_initial_conditions(
 				    struct precision *ppr,
 				    struct background *pba,
@@ -481,7 +487,24 @@ extern "C" {
 			 double * dy,
 			 void * parameters_and_workspace,
 			 ErrorMsg error_message
-			 );
+			);
+
+  int background_derivs_loga(
+			 double z,
+			 double * y,
+			 double * dy,
+			 void * parameters_and_workspace,
+			 ErrorMsg error_message
+			);
+
+  int background_add_line_to_bg_table(
+                    double loga,
+                    double * y,
+                    double * dy,
+                    int index_loga,
+                    void * parameters_and_workspace,
+                    ErrorMsg error_message
+				       );
 
   /** Scalar field potential and its derivatives **/
   double V_scf(
