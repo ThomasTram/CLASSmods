@@ -669,9 +669,9 @@ int background_init(
   default :
     printf("No method selected!\n");
   }
-  int ii;
+  /**  int ii;
   for (ii=0; ii<pba->bt_size; ii++)
-    fprintf(stderr, "%.2e ",pba->z_table[ii]);
+  fprintf(stderr, "%.2e ",pba->z_table[ii]);*/
   return _SUCCESS_;
 
 }
@@ -1857,7 +1857,7 @@ int background_solve_new(
 
     /** - Determine output vector */
   loga_ini = log(pvecback_integration[pba->index_bi_a]);
-  printf("%g %g\n",loga_ini, exp(loga_ini));
+  //printf("%g %g\n",loga_ini, exp(loga_ini));
   loga_final = log(pba->a_today);
   pba->bt_size = (loga_final-loga_ini)/ppr->back_integration_stepsize;
   class_alloc(loga, pba->bt_size*sizeof(double), pba->error_message); 
@@ -1930,7 +1930,7 @@ int background_solve_new(
   for (i=0; i < pba->bt_size; i++) {
     bg_table_row = pba->background_table + i*pba->bg_size;
     /** Recover integration vector at this time */
-    for (index_bi=0; index_bi<0; index_bi++)
+    for (index_bi=0; index_bi<pba->bi_size; index_bi++)
       pvecback_integration[index_bi] = bg_table_row[index_bi];
     /** pvecback is the row in the background table, pvecback_integration holds the contents of the integrated vector
 	at the current time */
@@ -1956,7 +1956,7 @@ int background_solve_new(
     /* Normalise D(z=0)=1 and construct f = D_prime/(aHD) */
     bg_table_row[pba->index_bg_D] = pvecback_integration[pba->index_bi_D]/D_today;
     bg_table_row[pba->index_bg_f] = pvecback_integration[pba->index_bi_D_prime]/
-      (D_today*bg_table_row[pba->index_bg_a]*bg_table_row[pba->index_bg_H]);
+      ( pvecback_integration[pba->index_bi_D]*bg_table_row[pba->index_bg_a]*bg_table_row[pba->index_bg_H]);
   }
 
   /** - fill tables of second derivatives (in view of spline interpolation) */
@@ -2533,12 +2533,12 @@ int background_add_line_to_bg_table(
   pbpaw = parameters_and_workspace;
   pba =  pbpaw->pba;
   int index_bi;
-
+  //printf("%d ",index_loga);
   pba->z_table[index_loga] = MAX(0.,pba->a_today/exp(loga)-1.);
   //printf("%.2e\n",pba->z_table[index_loga]);
   pba->tau_table[index_loga] = y[pba->index_bi_a]; /* Tau at a's spot..*/
   
-  /* -> write in the table. We are only storing {A} quantities */
+  /* -> write in the table. We are only storing the integration vector at this point */
   for (index_bi=0; index_bi < (pba->bi_size-1); index_bi++)
     pba->background_table[index_loga*pba->bg_size+index_bi] = y[index_bi];
     
