@@ -2843,6 +2843,8 @@ double f_ncdm_interp(double q_interp, double *qvec, double *fvec, int qvec_size)
   dq = qvec[1]-qvec[0];
   index_r = q_interp/dq;
   index_l = index_r-1;
+  if ((index_l>=qvec_size-1) || (index_r<1))
+    return 0.;
   if (index_l<0){
     ql = 0.;
     fl = 0.;
