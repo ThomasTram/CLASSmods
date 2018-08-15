@@ -855,6 +855,10 @@ int input_read_parameters(
       }
     }
 
+    class_read_int("has_decay_sector",pba->has_decay_sector);
+    class_read_double("decay_constant_nu1",pba->decay_constant_nu1);
+    class_test((pba->has_decay_sector==_TRUE_)&&(N_ncdm<3), errmsg, "Decay sector needs N_ncdm>=3!")
+  
     /* Check if filenames for interpolation tables are given: */
     class_read_list_of_integers_or_default("use_ncdm_psd_files",pba->got_files,_FALSE_,N_ncdm);
 
@@ -906,7 +910,8 @@ int input_read_parameters(
                                            &rho_ncdm,
                                            NULL,
                                            NULL,
-                                           NULL),
+                                           NULL,
+					   NULL),
                    pba->error_message,
                    errmsg);
         if (pba->Omega0_ncdm[n] == 0.0){
@@ -2882,6 +2887,8 @@ int input_default_params(
   pba->Omega0_dcdmdr = 0.0;
   pba->Omega0_dcdm = 0.0;
   pba->Gamma_dcdm = 0.0;
+  pba->has_decay_sector = _FALSE_;
+  pba->decay_constant_nu1 = 0.;
   pba->N_ncdm = 0;
   pba->Omega0_ncdm_tot = 0.;
   pba->ksi_ncdm_default = 0.;

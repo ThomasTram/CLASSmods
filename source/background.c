@@ -272,6 +272,8 @@ int background_functions(
   double a;
   /* scalar field quantities */
   double phi, phi_prime;
+  /* decay sector quantities */
+  double * f_ncdm;
 
   /** - initialize local variables */
   a = pvecback_B[pba->index_bi_a];
@@ -352,11 +354,18 @@ int background_functions(
 
     /* Loop over species: */
     for(n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++){
-
+      f_ncdm = NULL;
+      if (pba->has_decay_sector == _TRUE_){
+	if (n_ncdm==0)
+	  f_ncdm = pvecback_B+pba->index_bi_fphi;
+	else if (n_ncdm==1)
+	  f_ncdm = pvecback_B+pba->index_bi_fnu1;
+	else if (n_ncdm==2)
+	  f_ncdm = pvecback_B+pba->index_bi_fnu2;
+      }
       /* function returning background ncdm[n_ncdm] quantities (only
          those for which non-NULL pointers are passed) */
-      class_call(background_ncdm_momenta(
-                                         pba->q_ncdm_bg[n_ncdm],
+      class_call(background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                                          pba->w_ncdm_bg[n_ncdm],
                                          pba->q_size_ncdm_bg[n_ncdm],
                                          pba->M_ncdm[n_ncdm],
@@ -366,7 +375,8 @@ int background_functions(
                                          &rho_ncdm,
                                          &p_ncdm,
                                          NULL,
-                                         &pseudo_p_ncdm),
+                                         &pseudo_p_ncdm,
+					 f_ncdm),
                  pba->error_message,
                  pba->error_message);
 
@@ -442,6 +452,12 @@ int background_functions(
     /** - compute Omega_m */
     pvecback[pba->index_bg_Omega_m] = rho_m / rho_tot;
 
+    /** decay sector */
+    if (pba->has_decay_sector == _TRUE_){
+      
+
+
+    }
     /* one can put other variables here */
     /*  */
     /*  */
@@ -544,7 +560,7 @@ int background_init(
           printf(" -> ncdm species i=%d read from file %s\n",n_ncdm+1,pba->ncdm_psd_files+filenum*_ARGUMENT_LENGTH_MAX_);
           filenum++;
         }
-
+	
         /* call this function to get rho_ncdm */
         background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
                                 pba->w_ncdm_bg[n_ncdm],
@@ -556,7 +572,8 @@ int background_init(
                                 &rho_ncdm_rel,
                                 NULL,
                                 NULL,
-                                NULL);
+                                NULL,
+				NULL);
 
         /* inform user of the contribution of each species to
            radiation density (in relativistic limit): should be
@@ -784,7 +801,7 @@ int background_indices(
   pba->has_fld = _FALSE_;
   pba->has_ur = _FALSE_;
   pba->has_curvature = _FALSE_;
-
+  
   if (pba->Omega0_cdm != 0.)
     pba->has_cdm = _TRUE_;
 
@@ -870,6 +887,19 @@ int background_indices(
   /* - index for Omega_r (relativistic density fraction) */
   class_define_index(pba->index_bg_Omega_r,_TRUE_,index_bg,1);
 
+  /* - index for fphi (psd of phi) */
+  class_define_index(pba->index_bg_fphi,pba->has_decay_sector,index_bg,pba->q_size_ncdm_bg[0]);
+  /* - index for fnu1 (psd of nu1) */
+  class_define_index(pba->index_bg_fnu1,pba->has_decay_sector,index_bg,pba->q_size_ncdm_bg[1]);
+  /* - index for fnu2 (psd of nu2) */
+  class_define_index(pba->index_bg_fnu2,pba->has_decay_sector,index_bg,pba->q_size_ncdm_bg[2]);
+  /* - index for d/dtau log(fphi)  */
+  class_define_index(pba->index_bg_logfphi_prime,pba->has_decay_sector,index_bg,pba->q_size_ncdm_bg[0]);
+  /* - index for d/dtau log(fnu1) */
+  class_define_index(pba->index_bg_logfnu1_prime,pba->has_decay_sector,index_bg,pba->q_size_ncdm_bg[1]);
+  /* - index for d/dtau log(fbu2) */
+  class_define_index(pba->index_bg_logfnu2_prime,pba->has_decay_sector,index_bg,pba->q_size_ncdm_bg[2]);
+  
   /* - put here additional ingredients that you want to appear in the
      normal vector */
   /*    */
@@ -935,6 +965,13 @@ int background_indices(
   class_define_index(pba->index_bi_phi_scf,pba->has_scf,index_bi,1);
   class_define_index(pba->index_bi_phi_prime_scf,pba->has_scf,index_bi,1);
 
+   /* - index for fphi (psd of phi) */
+  class_define_index(pba->index_bi_fphi,pba->has_decay_sector,index_bi,pba->q_size_ncdm_bg[0]);
+  /* - index for fnu1 (psd of nu1) */
+  class_define_index(pba->index_bi_fnu1,pba->has_decay_sector,index_bi,pba->q_size_ncdm_bg[1]);
+  /* - index for fnu2 (psd of nu2) */
+  class_define_index(pba->index_bi_fnu2,pba->has_decay_sector,index_bi,pba->q_size_ncdm_bg[2]);
+  
   /* End of {B} variables, now continue with {C} variables */
   pba->bi_B_size = index_bi;
 
@@ -1056,8 +1093,17 @@ int background_ncdm_distribution(
     /*    FERMI-DIRAC INCLUDING CHEMICAL POTENTIALS   */
     /**************************************************/
 
-    *f0 = 1.0/pow(2*_PI_,3)*(1./(exp(q-ksi)+1.) +1./(exp(q+ksi)+1.));
-
+    if ((pba->has_decay_sector) && (n_ncdm<3)){
+      /* check that this list has been read */
+      class_test(param == NULL,
+                 pba->error_message,
+                 "Analytic expression wants to use 'ncdm_psd_parameters', but they have not been entered!");
+      *f0 = param[n_ncdm]/pow(2*_PI_,3)*(1./(exp(q-ksi)+1.) +1./(exp(q+ksi)+1.));
+    
+    }
+    else{
+      *f0 = 1.0/pow(2*_PI_,3)*(1./(exp(q-ksi)+1.) +1./(exp(q+ksi)+1.));
+    }
     /**************************************************/
 
     /** This form is only appropriate for approximate studies, since in
@@ -1379,7 +1425,7 @@ int background_ncdm_init(
 
 int background_ncdm_momenta(
                             /* Only calculate for non-NULL pointers: */
-                            double * qvec,
+			    double * qvec,
                             double * wvec,
                             int qsize,
                             double M,
@@ -1389,15 +1435,24 @@ int background_ncdm_momenta(
                             double * rho, // density
                             double * p,   // pressure
                             double * drho_dM,  // d rho / d M used in next function
-                            double * pseudo_p  // pseudo-p used in ncdm fluid approx
+                            double * pseudo_p,  // pseudo-p used in ncdm fluid approx
+			    double * f_ncdm //Optional distribution function 
                             ) {
 
   int index_q;
   double epsilon;
   double q2;
   double factor2;
+  double h;
   /** Summary: */
 
+  if (f_ncdm != NULL){
+    /** - If distribution is evolved, we must compute weights. */
+    h = qvec[1]-qvec[0];
+    for (index_q=0; index_q<qsize; index_q++)
+      wvec[index_q] = f_ncdm[index_q]*h;
+    wvec[qsize-1] *= 0.5;
+  }
   /** - rescale normalization at given redshift */
   factor2 = factor*pow(1+z,4);
 
@@ -1465,7 +1520,8 @@ int background_ncdm_M_from_Omega(
                           &rho,
                           NULL,
                           NULL,
-                          NULL);
+                          NULL,
+			  NULL);
 
   /* Is the value of Omega less than a massless species?*/
   class_test(rho0<rho,pba->error_message,
@@ -1487,7 +1543,8 @@ int background_ncdm_M_from_Omega(
                             &rho,
                             NULL,
                             &drhodM,
-                            NULL);
+                            NULL,
+			    NULL);
 
     deltaM = (rho0-rho)/drhodM; /* By definition of the derivative */
     if ((M+deltaM)<0.0) deltaM = -M/2.0; /* Avoid overshooting to negative M value. */
@@ -1842,9 +1899,12 @@ int background_solve_new(
   bpaw.pvecback = pvecback;
   double D_today;
   int index_bi, index_loga, i;
+  double *dy;
+  int index_q;
 
   /** - allocate vector of quantities to be integrated */
   class_alloc(pvecback_integration,pba->bi_size*sizeof(double),pba->error_message);
+  class_alloc(dy,pba->bi_size*sizeof(double),pba->error_message);
   
   /* Size of vector to integrate is (pba->bi_size-1) rather than
    * (pba->bi_size), since a is not integrated.
@@ -1890,6 +1950,7 @@ int background_solve_new(
   else{
     generic_evolver = evolver_ndf15;
   }
+  pba->dump_file = fopen("background_dump.dat", "w");
   
   class_call(generic_evolver(background_derivs_loga,
 			     loga_ini,
@@ -1905,10 +1966,12 @@ int background_solve_new(
 			     loga,
 			     pba->bt_size,
 			     background_add_line_to_bg_table,
-			     NULL,
+			     background_print_variables,
 			     pba->error_message),
 	     pba->error_message,
 	     pba->error_message);
+
+  fclose(pba->dump_file);
   
   
   /** - deduce age of the Universe */
@@ -1957,6 +2020,20 @@ int background_solve_new(
     bg_table_row[pba->index_bg_D] = pvecback_integration[pba->index_bi_D]/D_today;
     bg_table_row[pba->index_bg_f] = pvecback_integration[pba->index_bi_D_prime]/
       ( pvecback_integration[pba->index_bi_D]*bg_table_row[pba->index_bg_a]*bg_table_row[pba->index_bg_H]);
+
+    if (pba->has_decay_sector){
+    /* Optionally call derivs again to recover derivatives. In a perfect world, all of this stuff
+       should be done inside the add_line_to_table function and just small corrections from current values here. */
+    class_call(background_derivs(pba->tau_table[i],pvecback_integration, dy,&bpaw, pba->error_message),
+               pba->error_message,
+               pba->error_message);
+    for (index_q=0; index_q<pba->q_size_ncdm_bg[0]; index_q++)
+      bg_table_row[pba->index_bg_logfphi_prime+index_q] = dy[pba->index_bi_fphi+index_q]/pvecback_integration[pba->index_bi_fphi+index_q];
+    for (index_q=0; index_q<pba->q_size_ncdm_bg[1]; index_q++)
+      bg_table_row[pba->index_bg_logfnu1_prime+index_q] = dy[pba->index_bi_fnu1+index_q]/pvecback_integration[pba->index_bi_fnu1+index_q];
+    for (index_q=0; index_q<pba->q_size_ncdm_bg[2]; index_q++)
+      bg_table_row[pba->index_bg_logfnu2_prime+index_q] = dy[pba->index_bi_fnu2+index_q]/pvecback_integration[pba->index_bi_fnu2+index_q];
+    }
   }
 
   /** - fill tables of second derivatives (in view of spline interpolation) */
@@ -2026,7 +2103,7 @@ int background_solve_new(
   free(used_in_output);
   free(pvecback);
   free(pvecback_integration);
-
+  free(dy);
   return _SUCCESS_;
 
 }
@@ -2061,7 +2138,10 @@ int background_initial_conditions(
   double scf_lambda;
   double rho_fld_today;
   double w_fld,dw_over_da_fld,integral_fld;
-
+  double * f_ncdm;
+  double f0;
+  struct background_parameters_for_distributions pbadist;
+  int idx, index_q;
   /** - fix initial value of \f$ a \f$ */
   a = ppr->a_ini_over_a_today_default * pba->a_today;
 
@@ -2078,7 +2158,15 @@ int background_initial_conditions(
       rho_ncdm_rel_tot = 0.;
 
       for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++) {
-
+	f_ncdm = NULL;
+	if (pba->has_decay_sector == _TRUE_){
+	  if (n_ncdm==0)
+	    f_ncdm = pvecback_integration+pba->index_bi_fphi;
+	  else if (n_ncdm==1)
+	    f_ncdm = pvecback_integration+pba->index_bi_fnu1;
+	  else if (n_ncdm==2)
+	    f_ncdm = pvecback_integration+pba->index_bi_fnu2;
+	}	    
 	class_call(background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
 					   pba->w_ncdm_bg[n_ncdm],
 					   pba->q_size_ncdm_bg[n_ncdm],
@@ -2089,7 +2177,8 @@ int background_initial_conditions(
 					   &rho_ncdm,
 					   &p_ncdm,
 					   NULL,
-					   NULL),
+					   NULL,
+					   f_ncdm),
                    pba->error_message,
                    pba->error_message);
 	rho_ncdm_rel_tot += 3.*p_ncdm;
@@ -2197,6 +2286,27 @@ int background_initial_conditions(
                "initial phi = %e phi_prime = %e -> check initial conditions",
                pvecback_integration[pba->index_bi_phi_scf],
                pvecback_integration[pba->index_bi_phi_scf]);
+  }
+
+  if (pba->has_decay_sector){
+    //Prepare pbadist structure
+    pbadist.pba = pba;
+    for (n_ncdm=0; n_ncdm<3; n_ncdm++){
+      pbadist.n_ncdm = n_ncdm;
+      if (n_ncdm==0)
+	idx = pba->index_bi_fphi;
+      else if (n_ncdm==1)
+	idx = pba->index_bi_fnu1;
+      else if (n_ncdm==2)
+	idx = pba->index_bi_fnu2;
+      else
+	idx = 0; //should not happen;
+      for (index_q=0; index_q<pba->q_size_ncdm_bg[n_ncdm]; index_q++){
+	class_call(background_ncdm_distribution(&pbadist,pba->q_ncdm[n_ncdm][index_q],&f0),
+		   pba->error_message,pba->error_message);
+	pvecback_integration[idx+index_q] = f0;
+      }
+    }
   }
 
   /* Infer pvecback from pvecback_integration */
@@ -2387,7 +2497,14 @@ int background_derivs(
   struct background_parameters_and_workspace * pbpaw;
   struct background * pba;
   double * pvecback, a, H, rho_M;
-
+  /** For use with decay sector */
+  double *qvec_phi, *wvec_phi, *qvec_nu1, *wvec_nu1,*qvec_nu2, *wvec_nu2;
+  int qvec_phi_size, qvec_nu1_size, qvec_nu2_size;
+  double M_nu1, Gamma_nu1;
+  double *fPhi, *dfPhi, *fnu1, *dfnu1, *fnu2, *dfnu2;
+  double f0, dfPhi_inv, dfPhi_dec, dfnu1_inv, dfnu1_dec, dfnu2_inv, dfnu2_dec;
+  double qphi, q1, q2, qmin, qmax, epsilon1, q_interp;
+  int index_q1, index_q2, index_qphi, index_min, index_max;
   pbpaw = parameters_and_workspace;
   pba =  pbpaw->pba;
   pvecback = pbpaw->pvecback;
@@ -2446,9 +2563,178 @@ int background_derivs(
        + y[pba->index_bi_a]*dV_scf(pba,y[pba->index_bi_phi_scf])) ;
   }
 
+  if (pba->has_decay_sector == _TRUE_){
+    qvec_phi = pba->q_ncdm_bg[0];
+    wvec_phi = pba->w_ncdm_bg[0];
+    qvec_phi_size = pba->q_size_ncdm_bg[0];
+    qvec_nu1 = pba->q_ncdm_bg[1];
+    wvec_nu1 = pba->w_ncdm_bg[1];
+    qvec_nu1_size = pba->q_size_ncdm_bg[1];
+    qvec_nu2 = pba->q_ncdm_bg[2];
+    wvec_nu2 = pba->w_ncdm_bg[2];
+    qvec_nu2_size = pba->q_size_ncdm_bg[2];
+    M_nu1 = pba->M_ncdm[1];
+
+    // define fnu1, fnu2, fPhi?
+    fPhi = y+pba->index_bi_fphi;
+    dfPhi = dy+pba->index_bi_fphi;
+    fnu1 = y+pba->index_bi_fnu1;
+    dfnu1 = dy+pba->index_bi_fnu1;
+    fnu2 = y+pba->index_bi_fnu2;
+    dfnu2 = dy+pba->index_bi_fnu2;
+
+    Gamma_nu1 = pba->decay_constant_nu1;
+
+    /* Phi background Boltzmann equations: */
+    for (index_qphi=0; index_qphi<qvec_phi_size; index_qphi++){
+      qphi = qvec_phi[index_qphi];
+
+      qmin = fabs(0.25*a*a*M_nu1*M_nu1/qphi-qphi);
+      qmax = qvec_nu1[qvec_nu1_size-1];
+      class_call(get_limits_and_weights(qmin, qmax, qvec_nu1, qvec_nu1_size,wvec_nu1, &index_min, &index_max, error_message),
+         pba->error_message, error_message);
+
+      dfPhi_dec = 0.;
+      for(index_q1=index_min; index_q1 <= index_max; index_q1++){
+	q1 = qvec_nu1[index_q1];
+	epsilon1 = sqrt(q1*q1+a*a*M_nu1*M_nu1);
+	dfPhi_dec += q1/epsilon1*fnu1[index_q1]*wvec_nu1[index_q1];
+      }
+
+      qmin = 0.25*a*a*M_nu1*M_nu1/qphi;
+      qmax = qvec_nu1[qvec_nu1_size-1];
+      class_call(get_limits_and_weights(qmin, qmax, qvec_nu2, qvec_nu2_size, wvec_nu2, &index_min, &index_max, error_message),
+         pba->error_message, error_message);
+
+      dfPhi_inv = 0.;
+      for(index_q2=index_min; index_q2 <= index_max; index_q2++){
+	dfPhi_inv += fnu2[index_q2]*wvec_nu2[index_q2];
+      }
+
+    dfPhi[index_qphi] = a*a*M_nu1*Gamma_nu1/(qphi*qphi)*(dfPhi_dec-fPhi[index_qphi]*dfPhi_inv);
+    }
+
+    /* nu1 background Boltzmann equations: */
+    for (index_q1=0; index_q1<qvec_phi_size; index_q1++){
+      q1 = qvec_nu1[index_q1];
+      epsilon1 = sqrt(q1*q1+a*a*M_nu1*M_nu1);
+      qmin = 0.5*(epsilon1-q1);
+      qmax = 0.5*(epsilon1+q1);
+      class_call(get_limits_and_weights(qmin, qmax, qvec_nu2, qvec_nu2_size, wvec_nu2, &index_min, &index_max, error_message),
+         pba->error_message, error_message);
+
+      dfnu1_inv = 0.;
+      for(index_q2=index_min; index_q2 <= index_max; index_q2++){
+	q_interp = epsilon1-qvec_nu2[index_q2];
+	dfnu1_inv += fnu2[index_q2]*f_ncdm_interp(q_interp, qvec_nu2, fnu2, qvec_nu2_size)*wvec_nu2[index_q2];
+      }
+
+     dfnu1[index_q1] = a*a*M_nu1*Gamma_nu1/(epsilon1)*(-fnu1[index_q1]+1./q1*dfnu1_inv);
+    }
+
+    /* nu2 background Boltzmann equations: */
+    for (index_q2=0; index_q2<qvec_phi_size; index_q2++){
+      q2 = qvec_nu2[index_q2];
+
+      qmin = fabs(0.25*a*a*M_nu1*M_nu1/q2-q2);
+      qmax = qvec_nu1[qvec_nu1_size-1];
+      class_call(get_limits_and_weights(qmin, qmax, qvec_nu1, qvec_nu1_size, wvec_nu1, &index_min, &index_max, error_message),
+         pba->error_message, error_message);
+
+      dfnu2_dec = 0.;
+      for(index_q1=index_min; index_q1 <= index_max; index_q1++){
+	q1 = qvec_nu1[index_q1];
+	epsilon1 = sqrt(q1*q1+a*a*M_nu1*M_nu1);
+	dfnu2_dec += q1/epsilon1*fnu1[index_q1]*wvec_nu1[index_q1];
+      }
+
+      qmin = 0.25*a*a*M_nu1*M_nu1/q2;
+      qmax = qvec_phi[qvec_phi_size-1];
+      class_call(get_limits_and_weights(qmin, qmax, qvec_phi, qvec_phi_size, wvec_phi, &index_min, &index_max, error_message),
+         pba->error_message, error_message);
+
+      dfnu2_inv = 0.;
+      for(index_qphi=index_min; index_qphi <= index_max; index_qphi++){
+	dfnu2_inv += fPhi[index_qphi]*wvec_phi[index_qphi];
+      }
+
+     dfnu2[index_q2] = a*a*M_nu1*Gamma_nu1/(q2*q2)*(dfnu2_dec-fnu2[index_q2]*dfnu2_inv);
+    }
+  }
+
 
   return _SUCCESS_;
 
+}
+
+int get_limits_and_weights(double qmin, double qmax, double * qvec, int qvec_size, double * w_out, int * index_min, int * index_max, ErrorMsg error_message){
+  int index_q, npoints;
+  double h, s, tmp;
+  double w_l_p1, w_l, w_r_m1, w_r;
+  int Isign = 1;
+
+  if (qmax < qmin){
+    /** swap limits */
+    tmp = qmax;
+    qmax = qmin;
+    qmin = tmp;
+    Isign = -1;
+  }
+
+  if (qmax>qvec[qvec_size-1])
+    fprintf(stderr,"qmax = %g is larger than largest q value %g\n", qmax, qvec[qvec_size-1]);
+  if (qmin < 0)
+    fprintf(stderr,"qmin = %g is less than 0\n", qmin);
+  
+  /** Assumption dq constant only satisfied for quadrature stragtegy = 3 */
+  h = qvec[1]-qvec[0];
+  *index_min = MAX(0,qmin/h);
+  (*index_min)--;
+  //printf("h = %g, qmin = %g, qmin/h=%g, *index_min = %d\n",h, qmin, qmin/h, *index_min);
+  *index_max = MIN(qvec_size-1,qmax/h);
+
+  s = (qmin-qvec[*index_min+1]+h)/h;
+  w_l = 0.5*(1.-s)*(1.-s)*h;
+  w_l_p1 = 0.5*(1.-s*s)*h;
+  
+  s = (qmax-qvec[*index_max-1])/h;
+  w_r_m1 = 0.5*h*(2*s-s*s);
+  w_r = 0.5*s*s*h;
+
+  npoints = (*index_max)-(*index_min)+1;
+  //printf("npoints = %d. index_min = %d\n",npoints,*index_min);
+  if (npoints==2){
+    if (*index_min>-1)
+      w_out[*index_min] = (1.-0.5*(qmin+qmax-2*qvec[*index_min+1]+2*h)/h)*(qmax-qmin);
+    w_out[*index_max] = 0.5*(qmin+qmax-2*qvec[*index_min+1]+2*h)/h*(qmax-qmin);
+  }
+  else if (npoints==3){
+    if (*index_min > -1)
+      w_out[*index_min] = w_l;
+    w_out[*index_min+1] = w_l_p1+w_r_m1;
+    w_out[*index_max] = w_r;
+  }
+  else if (npoints > 3){
+    if (*index_min > -1)
+      w_out[*index_min] = w_l;
+    w_out[*index_min+1] = w_l_p1+0.5*h;
+    w_out[*index_max-1] = w_r_m1+0.5*h;
+    w_out[*index_max] = w_r;
+    for (index_q=(*index_min)+2; index_q<((*index_max)-1); index_q++)
+      w_out[index_q] = h;
+  }
+  else{
+    fprintf(stderr,"Error: npoints = %d\n",npoints);
+  }
+  
+  if (*index_min==-1)
+    *index_min = 0;
+  if (Isign == -1){
+    for (index_q= (*index_min); index_q <= (*index_max); index_q++)
+      w_out[index_q] *= -1;
+  }
+
+  return _SUCCESS_;
 }
 
 /**
@@ -2546,6 +2832,47 @@ int background_add_line_to_bg_table(
   pba->background_table[index_loga*pba->bg_size+pba->index_bi_tau] = y[pba->index_bi_a];
   pba->background_table[index_loga*pba->bg_size+pba->index_bi_a] = pba->a_today*1./(1.+pba->z_table[index_loga] );
   
+  return _SUCCESS_;
+}
+
+double f_ncdm_interp(double q_interp, double *qvec, double *fvec, int qvec_size){
+  /** Assume uniform grid */
+  double dq;
+  int index_l, index_r;
+  double ql, qr, fl, fr;
+  dq = qvec[1]-qvec[0];
+  index_r = q_interp/dq;
+  index_l = index_r-1;
+  if (index_l<0){
+    ql = 0.;
+    fl = 0.;
+  }
+  else{
+    fl = fvec[index_l];
+    ql = qvec[index_l];
+  }
+  qr = qvec[index_r];
+  fr = fvec[index_r];
+  return fl+(fr-fl)*(q_interp-ql)/(qr-ql);
+}
+
+int background_print_variables(double loga,
+			       double * y,
+			       double * dy,
+			       void * parameters_and_workspace,
+			       ErrorMsg error_message
+			       ) {
+  struct background_parameters_and_workspace * pbpaw;
+  struct background * pba;
+  double * pvecback;
+  int index_bi;
+  pbpaw = parameters_and_workspace;
+  pba =  pbpaw->pba;
+  pvecback = pbpaw->pvecback;
+  fprintf(pba->dump_file, "%.16e ",loga);
+  for (index_bi=0; index_bi<pba->bi_size-1; index_bi++)
+    fprintf(pba->dump_file, "%.16e ", y[index_bi]);
+  fprintf(pba->dump_file, "\n");
   return _SUCCESS_;
 }
 

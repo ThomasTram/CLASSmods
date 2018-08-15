@@ -119,6 +119,10 @@ struct background
 					     p-s-d is passed through file */
   char * ncdm_psd_files;                /**< list of filenames for tabulated p-s-d */
   /* end of parameters for tabulated ncdm p-s-d */
+  /** parameters for decay sector */
+  double decay_constant_nu1;
+  FILE * dump_file;
+  /** end of parameters for decay sector */
 
   //@}
 
@@ -181,6 +185,13 @@ struct background
 
   int index_bg_Omega_r;       /**< relativistic density fraction (\f$ \Omega_{\gamma} + \Omega_{\nu r} \f$) */
 
+  int index_bg_fphi;
+  int index_bg_fnu1;
+  int index_bg_fnu2;
+  int index_bg_logfphi_prime;
+  int index_bg_logfnu1_prime;
+  int index_bg_logfnu2_prime;
+  
   /* end of vector in normal format, now quantities in long format */
 
   int index_bg_rho_crit;      /**< critical density */
@@ -240,6 +251,9 @@ struct background
   int index_bi_rho_fld; /**< {B} fluid density */
   int index_bi_phi_scf;       /**< {B} scalar field value */
   int index_bi_phi_prime_scf; /**< {B} scalar field derivative wrt conformal time */
+  int index_bi_fphi; /**< Next three are {B} variables: distributions of the decay sector. */
+  int index_bi_fnu1;
+  int index_bi_fnu2;
 
   int index_bi_time;    /**< {C} proper (cosmological) time in Mpc */
   int index_bi_rs;      /**< {C} sound horizon */
@@ -271,6 +285,7 @@ struct background
   short has_fld;       /**< presence of fluid with constant w and cs2? */
   short has_ur;        /**< presence of ultra-relativistic neutrinos/relics? */
   short has_curvature; /**< presence of global spatial curvature? */
+  short has_decay_sector;                      /**< Turn non-standard sector on for first three ncdm species */
 
   //@}
 
@@ -436,7 +451,7 @@ extern "C" {
 
 
   int background_ncdm_momenta(
-                             double * qvec,
+			     double * qvec,
                              double * wvec,
                              int qsize,
                              double M,
@@ -446,7 +461,8 @@ extern "C" {
 		             double * rho,
                              double * p,
                              double * drho_dM,
-			     double * pseudo_p
+			      double * pseudo_p,
+			      double * f_ncdm
                              );
 
   int background_ncdm_M_from_Omega(
@@ -505,6 +521,17 @@ extern "C" {
                     void * parameters_and_workspace,
                     ErrorMsg error_message
 				       );
+
+  int background_print_variables(double tau,
+			       double * y,
+			       double * dy,
+			       void * parameters_and_workspace,
+			       ErrorMsg error_message
+				 );
+
+  int get_limits_and_weights(double qmin, double qmax, double * qvec, int qvec_size, double * w_out, int * index_min, int * index_max, ErrorMsg error_message);
+
+  double f_ncdm_interp(double q_interp, double *qvec, double *fvec, int qvec_size);
 
   /** Scalar field potential and its derivatives **/
   double V_scf(
