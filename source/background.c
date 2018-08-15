@@ -2684,6 +2684,15 @@ int get_limits_and_weights(double qmin, double qmax, double * qvec, int qvec_siz
   //printf("h = %g, qmin = %g, qmin/h=%g, *index_min = %d\n",h, qmin, qmin/h, *index_min);
   *index_max = MIN(qvec_size-1,qmax/h);
 
+  /** Protect from case where index_min is larger than or equal to qsize-1 or
+      index_max is less than or equal to 0 */
+  if (((*index_min) >= qvec_size-1) || ((*index_max) <= 0)){
+    *index_max = 0;
+    *index_min = 0;
+    return _SUCCESS_;
+  }
+
+  
   s = (qmin-qvec[*index_min+1]+h)/h;
   w_l = 0.5*(1.-s)*(1.-s)*h;
   w_l_p1 = 0.5*(1.-s*s)*h;
