@@ -2158,15 +2158,6 @@ int background_initial_conditions(
       rho_ncdm_rel_tot = 0.;
 
       for (n_ncdm=0; n_ncdm<pba->N_ncdm; n_ncdm++) {
-	f_ncdm = NULL;
-	if (pba->has_decay_sector == _TRUE_){
-	  if (n_ncdm==0)
-	    f_ncdm = pvecback_integration+pba->index_bi_fphi;
-	  else if (n_ncdm==1)
-	    f_ncdm = pvecback_integration+pba->index_bi_fnu1;
-	  else if (n_ncdm==2)
-	    f_ncdm = pvecback_integration+pba->index_bi_fnu2;
-	}	    
 	class_call(background_ncdm_momenta(pba->q_ncdm_bg[n_ncdm],
 					   pba->w_ncdm_bg[n_ncdm],
 					   pba->q_size_ncdm_bg[n_ncdm],
@@ -2178,7 +2169,7 @@ int background_initial_conditions(
 					   &p_ncdm,
 					   NULL,
 					   NULL,
-					   f_ncdm),
+					   NULL),
                    pba->error_message,
                    pba->error_message);
 	rho_ncdm_rel_tot += 3.*p_ncdm;
