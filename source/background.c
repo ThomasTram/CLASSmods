@@ -2531,8 +2531,8 @@ int background_derivs(
   int qvec_phi_size, qvec_nu1_size, qvec_nu2_size;
   double M_nu1, Gamma_nu1;
   double *fPhi, *dfPhi, *fnu1, *dfnu1, *fnu2, *dfnu2;
-  double f0, dfPhi_inv, dfPhi_dec, dfnu1_inv, dfnu1_dec, dfnu2_inv, dfnu2_dec;
-  double qphi, q1, q2, qmin, qmax, epsilon1, q_interp;
+  double f0, dfPhi_inv, dfPhi_dec, dfnu1_inv, dfnu1_dec, dfnu2_inv, dfnu2_dec, dfPhi_qs, dfnu1_qs, dfnu2_qs;
+  double qphi, q1, q2, qmin, qmax, epsilon1, q_interp, f_interp;
   int index_q1, index_q2, index_qphi, index_min, index_max;
   pbpaw = parameters_and_workspace;
   pba =  pbpaw->pba;
@@ -2636,11 +2636,15 @@ int background_derivs(
          pba->error_message, error_message);
 
       dfPhi_inv = 0.;
+      dfPhi_qs = 0.;
       for(index_q2=index_min; index_q2 <= index_max; index_q2++){
+	q_interp = sqrt((q2+qvec_phi[index_qphi])*(q2+qvec_phi[index_qphi])-a*a*M_nu1*M_nu1);
+	f_interp = f_ncdm_interp(q_interp, qvec_nu1, fnu1, qvec_nu1_size);
 	dfPhi_inv += fnu2[index_q2]*wvec_nu2[index_q2];
+	dfPhi_inv += fnu2[index_q2]*f_interp*wvec_nu2[index_q2];
       }
 
-    dfPhi[index_qphi] = a*a*M_nu1*Gamma_nu1/(qphi*qphi)*(dfPhi_dec-fPhi[index_qphi]*dfPhi_inv);
+      dfPhi[index_qphi] = a*a*M_nu1*Gamma_nu1/(qphi*qphi)*((1.-fPhi[index_qphi])*dfPhi_dec-fPhi[index_qphi]*dfPhi_inv+dfPhi_qs);
     }
 
     /* nu1 background Boltzmann equations: */
@@ -2653,12 +2657,15 @@ int background_derivs(
          pba->error_message, error_message);
 
       dfnu1_inv = 0.;
+      dfnu1_qs = 0.;
       for(index_q2=index_min; index_q2 <= index_max; index_q2++){
 	q_interp = epsilon1-qvec_nu2[index_q2];
-	dfnu1_inv += fnu2[index_q2]*f_ncdm_interp(q_interp, qvec_nu2, fnu2, qvec_nu2_size)*wvec_nu2[index_q2];
+	f_interp = f_ncdm_interp(q_interp, qvec_nu2, fnu2, qvec_nu2_size);
+	dfnu1_inv += fnu2[index_q2]*f_interp*wvec_nu2[index_q2];
+	dfnu1_qs += (fnu2[index_q2]-f_interp)*wvec_nu2[index_q2];
       }
 
-     dfnu1[index_q1] = a*a*M_nu1*Gamma_nu1/(epsilon1)*(-fnu1[index_q1]+1./q1*dfnu1_inv);
+     dfnu1[index_q1] = a*a*M_nu1*Gamma_nu1/(epsilon1)*(-fnu1[index_q1]+1./q1*dfnu1_inv+fnu1[index_q1]/q1*dfnu1_qs);
     }
 
     /* nu2 background Boltzmann equations: */
@@ -2683,11 +2690,15 @@ int background_derivs(
          pba->error_message, error_message);
 
       dfnu2_inv = 0.;
+      dfnu2_qs = 0.;
       for(index_qphi=index_min; index_qphi <= index_max; index_qphi++){
+	q_interp = sqrt((q2+qvec_phi[index_qphi])*(q2+qvec_phi[index_qphi])-a*a*M_nu1*M_nu1);
+	f_interp = f_ncdm_interp(q_interp, qvec_nu1, fnu1, qvec_nu1_size);
 	dfnu2_inv += fPhi[index_qphi]*wvec_phi[index_qphi];
+	dfnu2_qs += fPhi[index_qphi]*f_interp*wvec_phi[index_qphi];
       }
 
-     dfnu2[index_q2] = a*a*M_nu1*Gamma_nu1/(q2*q2)*(dfnu2_dec-fnu2[index_q2]*dfnu2_inv);
+      dfnu2[index_q2] = a*a*M_nu1*Gamma_nu1/(q2*q2)*((1.-fnu2[index_q2])*dfnu2_dec-fnu2[index_q2]*dfnu2_inv+dfnu2_qs);
     }
   }
 
