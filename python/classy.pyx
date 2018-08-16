@@ -1088,9 +1088,25 @@ cdef class Class:
         background = {}
 
         for i in range(number_of_titles):
+            if '__' in names[i]:
+                continue                    
             background[names[i]] = np.zeros(timesteps, dtype=np.double)
             for index in range(timesteps):
                 background[names[i]][index] = data[index*number_of_titles+i]
+
+        vector_titles = []
+        vector_indices = []
+        
+        for i, name in enumerate(names):
+            if name[-3:]=='__0':
+                vector_titles.append(name[:-3])
+                vector_indices.append(i)
+        for index_vt, vt in enumerate(vector_titles):
+            Nvt = len([tmp for tmp in names if vt in tmp])
+            background[vt] = np.zeros((timesteps, Nvt), dtype=np.double)
+            for index in range(timesteps):
+                for index_q in range(Nvt):
+                    background[vt][index,index_q] = data[index*number_of_titles+vector_indices[index_vt]+index_q]
 
         return background
 

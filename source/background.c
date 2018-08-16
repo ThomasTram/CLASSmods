@@ -1098,8 +1098,12 @@ int background_ncdm_distribution(
       class_test(param == NULL,
                  pba->error_message,
                  "Analytic expression wants to use 'ncdm_psd_parameters', but they have not been entered!");
+      /**if (n_ncdm==0)
+	*f0 = param[n_ncdm]/pow(2*_PI_,3)*(1./(exp(q-ksi)-1.) +1./(exp(q+ksi)-1.));
+      else
+	*f0 = param[n_ncdm]/pow(2*_PI_,3)*(1./(exp(q-ksi)+1.) +1./(exp(q+ksi)+1.));
+	*/
       *f0 = param[n_ncdm]/pow(2*_PI_,3)*(1./(exp(q-ksi)+1.) +1./(exp(q+ksi)+1.));
-    
     }
     else{
       *f0 = 1.0/pow(2*_PI_,3)*(1./(exp(q-ksi)+1.) +1./(exp(q+ksi)+1.));
@@ -2022,17 +2026,23 @@ int background_solve_new(
       ( pvecback_integration[pba->index_bi_D]*bg_table_row[pba->index_bg_a]*bg_table_row[pba->index_bg_H]);
 
     if (pba->has_decay_sector){
-    /* Optionally call derivs again to recover derivatives. In a perfect world, all of this stuff
-       should be done inside the add_line_to_table function and just small corrections from current values here. */
-    class_call(background_derivs(pba->tau_table[i],pvecback_integration, dy,&bpaw, pba->error_message),
-               pba->error_message,
-               pba->error_message);
-    for (index_q=0; index_q<pba->q_size_ncdm_bg[0]; index_q++)
-      bg_table_row[pba->index_bg_logfphi_prime+index_q] = dy[pba->index_bi_fphi+index_q]/pvecback_integration[pba->index_bi_fphi+index_q];
-    for (index_q=0; index_q<pba->q_size_ncdm_bg[1]; index_q++)
-      bg_table_row[pba->index_bg_logfnu1_prime+index_q] = dy[pba->index_bi_fnu1+index_q]/pvecback_integration[pba->index_bi_fnu1+index_q];
-    for (index_q=0; index_q<pba->q_size_ncdm_bg[2]; index_q++)
-      bg_table_row[pba->index_bg_logfnu2_prime+index_q] = dy[pba->index_bi_fnu2+index_q]/pvecback_integration[pba->index_bi_fnu2+index_q];
+      /* Optionally call derivs again to recover derivatives. In a perfect world, all of this stuff
+	 should be done inside the add_line_to_table function and just small corrections from current values here. */
+      class_call(background_derivs(pba->tau_table[i],pvecback_integration, dy,&bpaw, pba->error_message),
+      		 pba->error_message,
+      	 pba->error_message);
+      for (index_q=0; index_q<pba->q_size_ncdm_bg[0]; index_q++){
+	bg_table_row[pba->index_bg_fphi+index_q] = pvecback_integration[pba->index_bi_fphi+index_q];
+	bg_table_row[pba->index_bg_logfphi_prime+index_q] = dy[pba->index_bi_fphi+index_q]/pvecback_integration[pba->index_bi_fphi+index_q];
+      }
+      for (index_q=0; index_q<pba->q_size_ncdm_bg[1]; index_q++){
+	bg_table_row[pba->index_bg_fnu1+index_q] = pvecback_integration[pba->index_bi_fnu1+index_q];
+	bg_table_row[pba->index_bg_logfnu1_prime+index_q] = dy[pba->index_bi_fnu1+index_q]/pvecback_integration[pba->index_bi_fnu1+index_q];
+      }
+      for (index_q=0; index_q<pba->q_size_ncdm_bg[2]; index_q++){
+	bg_table_row[pba->index_bg_fnu2+index_q] = pvecback_integration[pba->index_bi_fnu2+index_q];
+	bg_table_row[pba->index_bg_logfnu2_prime+index_q] = dy[pba->index_bi_fnu2+index_q]/pvecback_integration[pba->index_bi_fnu2+index_q];
+      }
     }
   }
 
@@ -2351,6 +2361,7 @@ int background_output_titles(struct background * pba,
       to be indented correctly, but it can be as long as . */
   int n;
   char tmp[20];
+  int index_q;
 
   class_store_columntitle(titles,"z",_TRUE_);
   class_store_columntitle(titles,"proper time [Gyr]",_TRUE_);
@@ -2390,6 +2401,20 @@ int background_output_titles(struct background * pba,
   class_store_columntitle(titles,"gr.fac. D",_TRUE_);
   class_store_columntitle(titles,"gr.fac. f",_TRUE_);
 
+  if (pba->has_decay_sector == _TRUE_){
+    for (index_q=0; index_q<pba->q_size_ncdm_bg[0]; index_q++){
+      sprintf(tmp,"f_phi__%d",index_q);
+      class_store_columntitle(titles,tmp,_TRUE_);
+    }
+    for (index_q=0; index_q<pba->q_size_ncdm_bg[1]; index_q++){
+      sprintf(tmp,"f_nu1__%d",index_q);
+      class_store_columntitle(titles,tmp,_TRUE_);
+    }
+    for (index_q=0; index_q<pba->q_size_ncdm_bg[2]; index_q++){
+      sprintf(tmp,"f_nu2__%d",index_q);
+      class_store_columntitle(titles,tmp,_TRUE_);
+    }
+  }
   return _SUCCESS_;
 }
 
@@ -2399,6 +2424,7 @@ int background_output_data(
                            double *data){
   int index_tau, storeidx, n;
   double *dataptr, *pvecback;
+  int index_q;
 
   /** Stores quantities */
   for (index_tau=0; index_tau<pba->bt_size; index_tau++){
@@ -2441,6 +2467,18 @@ int background_output_data(
 
     class_store_double(dataptr,pvecback[pba->index_bg_D],_TRUE_,storeidx);
     class_store_double(dataptr,pvecback[pba->index_bg_f],_TRUE_,storeidx);
+
+    if (pba->has_decay_sector == _TRUE_){
+      for (index_q=0; index_q<pba->q_size_ncdm_bg[0]; index_q++){
+	class_store_double(dataptr,pvecback[pba->index_bg_fphi+index_q], _TRUE_,storeidx);
+      }
+      for (index_q=0; index_q<pba->q_size_ncdm_bg[1]; index_q++){
+	class_store_double(dataptr,pvecback[pba->index_bg_fnu1+index_q], _TRUE_,storeidx);
+      }
+      for (index_q=0; index_q<pba->q_size_ncdm_bg[2]; index_q++){
+	class_store_double(dataptr,pvecback[pba->index_bg_fnu2+index_q], _TRUE_,storeidx);
+      }
+    }
   }
 
   return _SUCCESS_;
@@ -2672,10 +2710,12 @@ int get_limits_and_weights(double qmin, double qmax, double * qvec, int qvec_siz
     Isign = -1;
   }
 
-  if (qmax>qvec[qvec_size-1])
-    fprintf(stderr,"qmax = %g is larger than largest q value %g\n", qmax, qvec[qvec_size-1]);
+  if (qmax>qvec[qvec_size-1]){
+    //fprintf(stderr,"qmax = %g is larger than largest q value %g\n", qmax, qvec[qvec_size-1]);
+    //qmax = qvec[qvec_size-1];
+  }
   if (qmin < 0)
-    fprintf(stderr,"qmin = %g is less than 0\n", qmin);
+    //fprintf(stderr,"qmin = %g is less than 0\n", qmin);
   
   /** Assumption dq constant only satisfied for quadrature stragtegy = 3 */
   h = qvec[1]-qvec[0];
