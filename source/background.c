@@ -2714,8 +2714,9 @@ int get_limits_and_weights(double qmin, double qmax, double * qvec, int qvec_siz
     //fprintf(stderr,"qmax = %g is larger than largest q value %g\n", qmax, qvec[qvec_size-1]);
     //qmax = qvec[qvec_size-1];
   }
-  if (qmin < 0)
+  if (qmin < 0){
     //fprintf(stderr,"qmin = %g is less than 0\n", qmin);
+  }
   
   /** Assumption dq constant only satisfied for quadrature stragtegy = 3 */
   h = qvec[1]-qvec[0];
