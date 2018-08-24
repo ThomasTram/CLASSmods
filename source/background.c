@@ -1297,12 +1297,13 @@ int background_ncdm_init(
     }
     else{
       /** Manual q-sampling for this species. Same sampling used for both perturbation and background sampling, since this will usually be a high precision setting anyway */
-      pba->q_size_ncdm_bg[k] = pba->ncdm_input_q_size[k];
+      pba->q_size_ncdm_bg[k] = 10*pba->ncdm_input_q_size[k];
       pba->q_size_ncdm[k] = pba->ncdm_input_q_size[k];
       class_alloc(pba->q_ncdm_bg[k],pba->q_size_ncdm_bg[k]*sizeof(double),pba->error_message);
       class_alloc(pba->w_ncdm_bg[k],pba->q_size_ncdm_bg[k]*sizeof(double),pba->error_message);
       class_alloc(pba->q_ncdm[k],pba->q_size_ncdm[k]*sizeof(double),pba->error_message);
       class_alloc(pba->w_ncdm[k],pba->q_size_ncdm[k]*sizeof(double),pba->error_message);
+
       class_call(get_qsampling_manual(pba->q_ncdm[k],
 				      pba->w_ncdm[k],
 				      pba->q_size_ncdm[k],
@@ -1315,10 +1316,24 @@ int background_ncdm_init(
 				      pba->error_message),
 		 pba->error_message,
 		 pba->error_message);
-      for (index_q=0; index_q<pba->q_size_ncdm[k]; index_q++) {
+
+      pba->ncdm_psd_parameters[4] *= 0.1;
+      class_call(get_qsampling_manual(pba->q_ncdm_bg[k],
+				      pba->w_ncdm_bg[k],
+				      pba->q_size_ncdm_bg[k],
+				      pba->ncdm_qmax[k],
+				      pba->ncdm_quadrature_strategy[k],
+				      pbadist.q,
+				      pbadist.tablesize,
+				      background_ncdm_distribution,
+				      &pbadist,
+				      pba->error_message),
+		 pba->error_message,
+		 pba->error_message);
+      /**      for (index_q=0; index_q<pba->q_size_ncdm[k]; index_q++) {
 	pba->q_ncdm_bg[k][index_q] = pba->q_ncdm[k][index_q];
 	pba->w_ncdm_bg[k][index_q] = pba->w_ncdm[k][index_q];
-      }
+	}*/
     /** - in verbose mode, inform user of number of sampled momenta
         for background quantities */
       if (pba->background_verbose > 0)
