@@ -515,6 +515,16 @@ extern "C" {
 				 int n_ncdm,
 				 int n,
 				   double *IM);
+  int get_qsampling_manual(double *x,
+				double *w,
+				int N,
+				double qmax,
+				enum ncdm_quadrature_method method,
+				double *qvec,
+				int qsiz,
+				int (*function)(void * params_for_function, double q, double *f0),
+				void * params_for_function,
+				ErrorMsg errmsg);
 
 #ifdef __cplusplus
 }

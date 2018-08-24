@@ -2511,3 +2511,151 @@ int background_ncdm_pure_moments(struct background * pba,
   *IM *= pba->deg_ncdm[n_ncdm]*0.5*pow(2*_PI_,3);
   return _SUCCESS_;
 }
+
+
+int get_qsampling_manual(double *x,
+			 double *w,
+			 int N,
+			 double qmax,
+			 enum ncdm_quadrature_method method,
+			 double *qvec,
+			 int qsiz,
+			 int (*function)(void * params_for_function, double q, double *f0),
+			 void * params_for_function,
+			 ErrorMsg errmsg) {
+
+  double y, h, t;
+  double *b, *c;
+  int i;
+  struct background * pba;
+  struct background_parameters_for_distributions * pbadist_local;
+  double *param;
+  double Lag_alpha, GB_q0, GB_alpha, GB_x;
+  double qmin, qmin_GB, qmin_NR;
+  double beta;
+  double prodlog_argument, gamma, xj, xjp1;
+  int iter;
+  /** - extract from the input structure pbadist all the relevant information */
+  pbadist_local = params_for_function;          /* restore actual format of pbadist */
+  pba = pbadist_local->pba;         /* extract the background structure from it */
+  param = pba->ncdm_psd_parameters; /* extract the optional parameter list from it */
+
+  switch (method){ 
+  case (qm_auto) :
+    return _FAILURE_;
+  case (qm_Laguerre) :
+    /* Allocate storage for Laguerre coefficients: */
+    class_alloc(b,N*sizeof(double),errmsg);
+    class_alloc(c,N*sizeof(double),errmsg);
+    compute_Laguerre(x,w,N,0.0,b,c,_TRUE_);
+    for (i=0; i<N; i++){
+      (*function)(params_for_function,x[i],&y);
+      w[i] *= y;
+    }
+    free(b);
+    free(c);
+    return _SUCCESS_;
+  case (qm_trapz) :
+    for (i=0; i<N; i++){
+      /** Note that we count q=0 as an extra point with weight 0 */
+      h = qmax/N;
+      x[i] = h + i*h;
+      (*function)(params_for_function,x[i],&y);
+      w[i] = y*h;
+      if (i==N-1)
+	w[i] *=0.5;
+    }
+    return _SUCCESS_;
+  case (qm_trapz_indefinite) :
+    /** We do the variable transformation q = 1/t-1. The trapezoidal rule is closed, but since the distribution function
+	goes to zero in both limits, we can use an effectively N+2 rule simply by not using the exterior points. */
+    for (i=0; i<N; i++){
+      h = 1.0/(N+1.0);
+      t = h + i*h;
+      x[i] = 1.0/t-1.0;
+      (*function)(params_for_function,x[i],&y);
+      w[i] = y*h/t/t;
+    }
+    return _SUCCESS_;
+  case (qm_genLaguerre) :
+    // Grey body
+      GB_alpha=param[1];
+      GB_x=param[2];
+      GB_q0 = param[3];
+    /* Allocate storage for Laguerre coefficients: */
+    class_alloc(b,N*sizeof(double),errmsg);
+    class_alloc(c,N*sizeof(double),errmsg);
+    Lag_alpha = GB_alpha+1.; //GB_alpha+1.
+    compute_Laguerre(x,w,N,Lag_alpha,b,c,_TRUE_);
+    for (i=0; i<N; i++){
+      x[i] *= 1./(GB_x*GB_alpha);
+      (*function)(params_for_function,x[i],&y);
+      w[i] *= y*pow(x[i],-Lag_alpha)/(GB_x*GB_alpha);
+      printf("alpha=%g, x[%d]=%g, w=%g\n",-param[1]-1,i,x[i],w[i]);
+    }
+    free(b);
+    free(c);
+    return _SUCCESS_;
+  case (qm_trapz_log) :
+    /** The lower and uppper limit will/should depend on the distribution function.
+	We are restricting ourselves to the GreyBody distribution now. */
+    // Grey body
+    GB_alpha=param[1];
+    GB_x=param[2];
+    GB_q0 = param[3];
+    beta = GB_alpha+2.;
+
+    /** First, compute the momentum such that 5% of the neutrino particles have a momentum smaller than this. */
+    qmin_GB = pow(param[4]*2*beta*(1-pow(2,1.-beta))*pow(GB_x*GB_alpha,-beta)*tgamma(beta)*zeta(beta),1./beta);
+    /** Then, compute the momentum such that the neutrinos below this momentum are essentially non-relativistic
+	at the initial redshift for pertuebations of k<1. */
+    qmin_NR = param[4]*1e-6*pba->m_ncdm_in_eV[pbadist_local->n_ncdm];
+    /** Take the MAXIMUM of these qmins: We only care about q's for which there are a non-vanishing population
+	AND the physics could be different. For instance, to compute the asymptotic contribution to the integral, we need
+	to assume that the multiplying function is essentially constant for q<qmin. */
+    qmin = MAX(qmin_GB,qmin_NR);
+    /** Finally, ensure that the series expansion of the integral is ok */
+    qmin = MIN(qmin,0.1/(GB_x*GB_alpha));
+    
+    /** Exponential decay is a function of alpha*x*q, so we must scale the maximum q by 1./(alpha*x): */
+    /** Additionally: The Grey body distribution may have a large power of q that must be taken into account */
+    /** Simple solution: iterate the equation (q/15)^4 (q/q0)^(alpha-1) exp(-alpha x q) = exp(-15) where 15 is the input qmax. */
+
+    xjp1 = qmax/(GB_x*GB_alpha);
+    for (iter=0; iter<20; iter++){
+      xj = xjp1;
+      xjp1 = (qmax+4*log(xj/qmax)+(GB_alpha-1.)*log(xj/GB_q0))/(GB_x*GB_alpha);
+      //printf("%d: xj=%g, xjp1=%g, err = %.3e\n",iter,xj, xjp1,fabs(1.-xj/xjp1));
+    }
+    qmax = xjp1;
+
+    if (pba->background_verbose > 1){
+      printf("--> ncdm species %d uses a GreyBody distribution. qmin_GB = %g, qmin_NR = %g and qmax = %g\n",pbadist_local->n_ncdm, qmin_GB, qmin_NR,qmax);
+      printf("n_ncdm=%d, M = %.16e, m=%.16e\n",pbadist_local->n_ncdm,pba->M_ncdm[pbadist_local->n_ncdm],pba->m_ncdm_in_eV[pbadist_local->n_ncdm]);
+    }
+    
+    h = (log(qmax)-log(qmin))/(N-1);
+    for (i=0; i<N; i++){
+      x[i] = exp(log(qmin)+i*h);
+    }
+    for (i=0; i<N; i++){
+      (*function)(params_for_function,x[i],&y);
+      if (i==0){
+	w[0] = 0.5*y*(x[1]-x[0]);
+	/** Handle asymptotic piece from 0 to x[0]: */
+	//w[0] += 2.0/pow(2*_PI_,3)*pow(x[0]/GB_q0,GB_alpha)*GB_q0/(2.*(2+GB_alpha));
+	w[0] += 2.0/pow(2*_PI_,3)*pow(x[0]/GB_q0,GB_alpha)*GB_q0/48.*
+	  (24./(2+GB_alpha)-12./(3+GB_alpha)*GB_x*GB_alpha*x[0]+1./(5+GB_alpha)*pow(GB_x*GB_alpha*x[0],3));
+      }
+      else if (i==N-1){
+	w[i] = 0.5*y*(x[i]-x[i-1]);
+      }
+      else{
+	w[i] = 0.5*y*(x[i+1]-x[i-1]);
+      }
+      //printf("alpha=%g, x[%d]=%g, w=%g\n",-param[1]-1,i,x[i],w[i]);
+    }
+    return _SUCCESS_;
+  }
+  return _SUCCESS_;
+}
