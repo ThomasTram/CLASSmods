@@ -2533,6 +2533,8 @@ int perturb_prepare_output(struct background * pba,
       /* Scalar field scf */
       class_store_columntitle(ppt->scalar_titles, "delta_scf", pba->has_scf);
       class_store_columntitle(ppt->scalar_titles, "theta_scf", pba->has_scf);
+      /* H_T_Nb */
+      class_store_columntitle(ppt->scalar_titles, "H_T_Nb_prime", _TRUE_);
 
       ppt->number_of_scalar_titles =
         get_number_of_titles(ppt->scalar_titles);
@@ -6545,7 +6547,7 @@ int perturb_print_variables(double tau,
     }
 
     /* converting synchronous variables to newtonian ones */
-    if (ppt->gauge == synchronous) {
+    if (0==1) { //(ppt->gauge == synchronous) {
 
       /* density and velocity perturbations (comment out if you wish to keep synchronous variables) */
 
@@ -6648,6 +6650,25 @@ int perturb_print_variables(double tau,
     /* Scalar field scf*/
     class_store_double(dataptr, delta_scf, pba->has_scf, storeidx);
     class_store_double(dataptr, theta_scf, pba->has_scf, storeidx);
+    /* Conf. time derivative of H_T in Nbody gauge. */
+    double rho_plus_p_tot = 2./3.*(pba->K/a/a-pvecback[pba->index_bg_H_prime]/a);
+    double p_tot_prime =  -4./3.*a*H*pvecback[pba->index_bg_rho_g];
+    if (pba->has_ur == _TRUE_)
+      p_tot_prime += -4./3.*a*H*pvecback[pba->index_bg_rho_ur];
+    if (pba->has_dr == _TRUE_)
+      p_tot_prime += -4./3.*a*H*pvecback[pba->index_bg_rho_dr];
+    if (pba->has_fld == _TRUE_) /** Valid only for constant w! */
+      p_tot_prime += -(1+pvecback[pba->index_bg_w_fld])*a*H*pvecback[pba->index_bg_rho_fld];
+    /** scf not implemented */
+    /** Remember that p from lambda is constant */
+    if (pba->has_ncdm == _TRUE_){
+      for(n_ncdm=0; n_ncdm < pba->N_ncdm; n_ncdm++)
+	p_tot_prime += -a*H*(5*pvecback[pba->index_bg_p_ncdm1+n_ncdm]-pvecback[pba->index_bg_pseudo_p_ncdm1+n_ncdm]);
+    }
+    double H_T_Nb_prime = 3*a*H/rho_plus_p_tot*(-ppw->delta_p+
+						p_tot_prime*ppw->rho_plus_p_theta/rho_plus_p_tot/k/k+
+						ppw->rho_plus_p_shear);
+    class_store_double(dataptr, H_T_Nb_prime, _TRUE_, storeidx);
 
     //fprintf(ppw->perturb_output_file,"\n");
 
